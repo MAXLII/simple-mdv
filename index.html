@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple Markdown Viewer</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="node_modules/highlight.js/styles/github.css" id="hljs-light">
+  <link rel="stylesheet" href="node_modules/highlight.js/styles/github-dark.css" id="hljs-dark" disabled>
+</head>
+
+<body>
+  <div id="toolbar">
+    <button id="backBtn" disabled>←</button>
+    <button id="forwardBtn" disabled>→</button>
+    <div class="toolbar-separator"></div>
+    <button id="openBtn">Open File</button>
+    <select id="recentFiles">
+      <option value="">Recent Files</option>
+    </select>
+    <button id="editBtn" style="display:none;">Edit</button>
+    <button id="exportBtn" style="display:none;">Export PDF</button>
+    <button id="searchBtn">🔍 Search</button>
+    <button id="tocBtn">📑 TOC</button>
+    <button id="darkModeBtn">🌙</button>
+    <span id="filename"></span>
+  </div>
+
+  <!-- Search Panel -->
+  <div id="searchPanel" style="display:none;">
+    <input type="text" id="searchInput" placeholder="Search in document...">
+    <button id="searchPrev">↑</button>
+    <button id="searchNext">↓</button>
+    <span id="searchCount">0/0</span>
+    <button id="searchClose">✕</button>
+  </div>
+
+  <div id="main-container">
+    <!-- Table of Contents Sidebar -->
+    <div id="tocSidebar" class="hidden">
+      <div id="tocHeader">
+        <h3>Table of Contents</h3>
+        <button id="tocCloseBtn">✕</button>
+      </div>
+      <div id="tocContent"></div>
+    </div>
+
+    <div id="container">
+      <div id="viewer" class="active"></div>
+      <textarea id="editor" style="display:none;"></textarea>
+    </div>
+  </div>
+
+  <script src="node_modules/marked/lib/marked.umd.js"></script>
+  <script src="node_modules/mermaid/dist/mermaid.min.js"></script>
+  <script src="renderer.js"></script>
+</body>
+
+</html>

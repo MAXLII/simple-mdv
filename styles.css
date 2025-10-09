@@ -1,0 +1,511 @@
+/* styles.css */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+    background: #ffffff;
+    color: #24292f;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+#toolbar {
+    background: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+    padding: 12px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 24px;
+    background: #d0d7de;
+    margin: 0 5px;
+}
+
+button {
+    padding: 6px 16px;
+    background: #2da44e;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+button:hover {
+    background: #2c974b;
+}
+
+button:disabled {
+    background: #94d3a2;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+#backBtn, #forwardBtn {
+    padding: 6px 12px;
+    font-size: 16px;
+}
+
+#searchBtn, #tocBtn {
+    background: #6e7781;
+}
+
+#searchBtn:hover, #tocBtn:hover {
+    background: #57606a;
+}
+
+#recentFiles {
+    padding: 6px 12px;
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    color: #24292f;
+    max-width: 200px;
+}
+
+#recentFiles:hover {
+    background: #eaeef2;
+}
+
+#exportBtn {
+    background: #6e7781;
+}
+
+#exportBtn:hover {
+    background: #57606a;
+}
+
+#editBtn {
+    background: #0969da;
+}
+
+#editBtn:hover {
+    background: #0860ca;
+}
+
+#filename {
+    font-weight: 600;
+    color: #57606a;
+    margin-left: auto;
+}
+
+#main-container {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+#container {
+    flex: 1;
+    overflow: auto;
+}
+
+#viewer {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    line-height: 1.6;
+}
+
+#viewer h1 {
+    border-bottom: 1px solid #d0d7de;
+    padding-bottom: 0.3em;
+    margin-bottom: 16px;
+    font-size: 2em;
+}
+
+#viewer h2 {
+    border-bottom: 1px solid #d0d7de;
+    padding-bottom: 0.3em;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-size: 1.5em;
+}
+
+#viewer h3 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-size: 1.25em;
+}
+
+#viewer p {
+    margin-bottom: 16px;
+}
+
+#viewer code {
+    background: #f6f8fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+#viewer pre {
+    background: #f6f8fa;
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin-bottom: 16px;
+}
+
+#viewer pre code {
+    background: none;
+    padding: 0;
+}
+
+#viewer ul, #viewer ol {
+    margin-bottom: 16px;
+    padding-left: 2em;
+}
+
+#viewer blockquote {
+    border-left: 4px solid #d0d7de;
+    padding-left: 16px;
+    color: #57606a;
+    margin-bottom: 16px;
+}
+
+#viewer a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+#viewer a:hover {
+    text-decoration: underline;
+}
+
+.mermaid-wrapper {
+    margin: 20px 0;
+    text-align: center;
+}
+
+#editor {
+    width: 100%;
+    height: 100%;
+    padding: 40px 20px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    border: none;
+    resize: none;
+    outline: none;
+}
+
+.error {
+    color: #cf222e;
+    padding: 20px;
+    background: #ffebe9;
+    border-radius: 6px;
+    margin: 20px;
+}
+
+/* Search Panel */
+#searchPanel {
+    background: #f6f8fa;
+    border-bottom: 1px solid #d0d7de;
+    padding: 10px 20px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+#searchInput {
+    flex: 1;
+    padding: 6px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+}
+
+#searchInput:focus {
+    border-color: #0969da;
+}
+
+#searchPrev, #searchNext, #searchClose {
+    padding: 6px 12px;
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    color: #24292f;
+    font-size: 14px;
+}
+
+#searchPrev:hover, #searchNext:hover, #searchClose:hover {
+    background: #eaeef2;
+}
+
+#searchCount {
+    font-size: 14px;
+    color: #57606a;
+    min-width: 50px;
+}
+
+.search-highlight {
+    background: #fff8c5;
+    padding: 2px 0;
+}
+
+.search-highlight.active {
+    background: #ffeb3b;
+    font-weight: bold;
+}
+
+/* Table of Contents Sidebar */
+#tocSidebar {
+    width: 280px;
+    background: #f6f8fa;
+    border-right: 1px solid #d0d7de;
+    overflow-y: auto;
+    transition: transform 0.3s ease;
+    flex-shrink: 0;
+}
+
+#tocSidebar.hidden {
+    transform: translateX(-100%);
+    position: absolute;
+    left: 0;
+    height: 100%;
+}
+
+#tocHeader {
+    padding: 16px;
+    border-bottom: 1px solid #d0d7de;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#tocHeader h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #24292f;
+}
+
+#tocCloseBtn {
+    background: transparent;
+    color: #57606a;
+    padding: 4px 8px;
+    font-size: 16px;
+}
+
+#tocCloseBtn:hover {
+    background: #eaeef2;
+}
+
+#tocContent {
+    padding: 12px;
+}
+
+.toc-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    border-radius: 6px;
+    color: #0969da;
+    text-decoration: none;
+    display: block;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.toc-item:hover {
+    background: #eaeef2;
+}
+
+.toc-item.toc-h1 {
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.toc-item.toc-h2 {
+    padding-left: 24px;
+    margin-top: 4px;
+}
+
+.toc-item.toc-h3 {
+    padding-left: 36px;
+    margin-top: 2px;
+    font-size: 13px;
+}
+
+.toc-item.toc-h4 {
+    padding-left: 48px;
+    font-size: 13px;
+}
+/* Add to the end of styles.css */
+
+/* Dark mode */
+body.dark-mode {
+    background: #0d1117;
+    color: #c9d1d9;
+}
+
+body.dark-mode #toolbar {
+    background: #161b22;
+    border-bottom-color: #30363d;
+}
+
+body.dark-mode button {
+    background: #238636;
+}
+
+body.dark-mode button:hover {
+    background: #2ea043;
+}
+
+body.dark-mode #editBtn {
+    background: #1f6feb;
+}
+
+body.dark-mode #editBtn:hover {
+    background: #388bfd;
+}
+
+body.dark-mode #darkModeBtn {
+    background: #21262d;
+}
+
+body.dark-mode #darkModeBtn:hover {
+    background: #30363d;
+}
+
+body.dark-mode #filename {
+    color: #8b949e;
+}
+
+body.dark-mode #viewer h1,
+body.dark-mode #viewer h2 {
+    border-bottom-color: #21262d;
+}
+
+body.dark-mode #viewer code {
+    background: #161b22;
+    color: #e6edf3;
+}
+
+body.dark-mode #viewer pre {
+    background: #161b22;
+}
+
+body.dark-mode #viewer blockquote {
+    border-left-color: #3b434b;
+    color: #8b949e;
+}
+
+body.dark-mode #viewer a {
+    color: #58a6ff;
+}
+
+body.dark-mode #editor {
+    background: #0d1117;
+    color: #c9d1d9;
+}
+
+body.dark-mode .error {
+    color: #f85149;
+    background: #490202;
+}
+
+/* Dark mode for mermaid diagrams */
+body.dark-mode .mermaid-wrapper svg {
+    filter: invert(0.9) hue-rotate(180deg);
+}
+
+/* Dark mode for new elements */
+body.dark-mode #recentFiles {
+    background: #161b22;
+    border-color: #30363d;
+    color: #c9d1d9;
+}
+
+body.dark-mode #recentFiles:hover {
+    background: #21262d;
+}
+
+body.dark-mode .toolbar-separator {
+    background: #30363d;
+}
+
+body.dark-mode #searchPanel {
+    background: #161b22;
+    border-bottom-color: #30363d;
+}
+
+body.dark-mode #searchInput {
+    background: #0d1117;
+    border-color: #30363d;
+    color: #c9d1d9;
+}
+
+body.dark-mode #searchInput:focus {
+    border-color: #1f6feb;
+}
+
+body.dark-mode #searchPrev,
+body.dark-mode #searchNext,
+body.dark-mode #searchClose {
+    background: #161b22;
+    border-color: #30363d;
+    color: #c9d1d9;
+}
+
+body.dark-mode #searchPrev:hover,
+body.dark-mode #searchNext:hover,
+body.dark-mode #searchClose:hover {
+    background: #21262d;
+}
+
+body.dark-mode #searchCount {
+    color: #8b949e;
+}
+
+body.dark-mode .search-highlight {
+    background: #966600;
+    color: #c9d1d9;
+}
+
+body.dark-mode .search-highlight.active {
+    background: #c69026;
+    color: #0d1117;
+}
+
+body.dark-mode #tocSidebar {
+    background: #161b22;
+    border-right-color: #30363d;
+}
+
+body.dark-mode #tocHeader {
+    border-bottom-color: #30363d;
+}
+
+body.dark-mode #tocHeader h3 {
+    color: #c9d1d9;
+}
+
+body.dark-mode #tocCloseBtn {
+    color: #8b949e;
+}
+
+body.dark-mode #tocCloseBtn:hover {
+    background: #21262d;
+}
+
+body.dark-mode .toc-item {
+    color: #58a6ff;
+}
+
+body.dark-mode .toc-item:hover {
+    background: #21262d;
+}

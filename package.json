@@ -1,0 +1,46 @@
+{
+  "name": "simple-markdown-viewer",
+  "version": "1.0.0",
+  "description": "Simple Markdown Viewer - A powerful desktop markdown viewer built with NW.js",
+  "author": "Derek Bowes <db@bowesmail.com> (SubsKeepr Inc.)",
+  "license": "MIT",
+  "main": "index.html",
+  "scripts": {
+    "start": "nw .",
+    "build": "nw-builder --platforms win64 --buildDir dist/ ."
+  },
+  "window": {
+    "title": "Simple Markdown Viewer",
+    "width": 1200,
+    "height": 900,
+    "toolbar": true,
+    "icon": "icon.png"
+  },
+  "devDependencies": {
+    "nw": "^0.104.1-sdk",
+    "nw-builder": "^4.16.0"
+  },
+  "dependencies": {
+    "marked": "^16.4.0",
+    "mermaid": "^11.12.0",
+    "highlight.js": "^11.11.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KrunchMuffin/simple-markdown-viewer.git"
+  },
+  "keywords": [
+    "markdown",
+    "viewer",
+    "editor",
+    "nwjs",
+    "desktop",
+    "mermaid",
+    "syntax-highlighting",
+    "documentation"
+  ],
+  "bugs": {
+    "url": "https://github.com/KrunchMuffin/simple-markdown-viewer/issues"
+  },
+  "homepage": "https://github.com/KrunchMuffin/simple-markdown-viewer#readme"
+}
