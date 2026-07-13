@@ -1,6 +1,8 @@
-# Simple Markdown Viewer
+# simple-mdv
 
 A powerful, feature-rich desktop Markdown viewer built with NW.js. Perfect for reading, editing, and navigating through Markdown documentation with ease.
+
+This repository is based on the upstream project [KrunchMuffin/simple-markdown-viewer](https://github.com/KrunchMuffin/simple-markdown-viewer). The upstream project is licensed under the MIT License, which permits modification and redistribution when the original copyright and license notice are retained.
 
 ![Simple Markdown Viewer](screenshot.png)
 
@@ -45,7 +47,7 @@ A powerful, feature-rich desktop Markdown viewer built with NW.js. Perfect for r
 ## Installation
 
 ### Download Pre-built Binary
-Download the latest release from the [Releases](https://github.com/yourusername/simple-markdown-viewer/releases) page.
+Download the latest release from the [Releases](https://github.com/MAXLII/simple-mdv/releases) page.
 
 ### Build from Source
 
@@ -57,8 +59,8 @@ Download the latest release from the [Releases](https://github.com/yourusername/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/simple-markdown-viewer.git
-cd simple-markdown-viewer
+git clone https://github.com/MAXLII/simple-mdv.git
+cd simple-mdv
 
 # Install dependencies
 npm install
@@ -177,6 +179,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## Upstream Source
+
+This project is derived from [KrunchMuffin/simple-markdown-viewer](https://github.com/KrunchMuffin/simple-markdown-viewer), originally published by Derek Bowes / SubsKeepr Inc. under the MIT License. The MIT License allows reuse, modification, publication, distribution, sublicensing, and sale of copies of the software, provided that the copyright notice and permission notice are included in copies or substantial portions of the software.
+
 ## Author
 
 **Derek Bowes**
@@ -192,7 +198,7 @@ SubsKeepr Inc.
 
 ## Support
 
-If you encounter any issues or have questions, please [open an issue](https://github.com/yourusername/simple-markdown-viewer/issues) on GitHub.
+If you encounter any issues or have questions, please [open an issue](https://github.com/MAXLII/simple-mdv/issues) on GitHub.
 
 ---
 
