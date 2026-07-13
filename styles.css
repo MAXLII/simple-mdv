@@ -12,6 +12,9 @@ body {
     height: 100vh;
     display: flex;
     flex-direction: column;
+    --content-zoom: 1;
+    --reader-width: 1100px;
+    --vector-page-width: var(--reader-width);
 }
 
 #toolbar {
@@ -22,6 +25,59 @@ body {
     gap: 10px;
     align-items: center;
     flex-wrap: wrap;
+}
+
+#tabsBar {
+    background: #ffffff;
+    border-bottom: 1px solid #d0d7de;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+    padding: 6px 10px 0;
+}
+
+.file-tab {
+    align-items: center;
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: #24292f;
+    display: flex;
+    gap: 8px;
+    max-width: 240px;
+    min-width: 120px;
+    padding: 6px 10px;
+}
+
+.file-tab.active {
+    background: #ffffff;
+    color: #0969da;
+}
+
+.file-tab:hover {
+    background: #eaeef2;
+}
+
+.file-tab.active:hover {
+    background: #ffffff;
+}
+
+.tab-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tab-close {
+    background: transparent;
+    border: none;
+    color: #57606a;
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
 }
 
 .toolbar-separator {
@@ -88,11 +144,23 @@ button:disabled {
     background: #57606a;
 }
 
-#editBtn {
+#zoomModeBtn, #layoutWidthBtn, #zoomResetBtn {
+    background: #6e7781;
+}
+
+#zoomModeBtn:hover, #layoutWidthBtn:hover, #zoomResetBtn:hover {
+    background: #57606a;
+}
+
+#zoomModeBtn.active {
     background: #0969da;
 }
 
-#editBtn:hover {
+#editBtn, #compareBtn {
+    background: #0969da;
+}
+
+#editBtn:hover, #compareBtn:hover {
     background: #0860ca;
 }
 
@@ -112,13 +180,33 @@ button:disabled {
 #container {
     flex: 1;
     overflow: auto;
+    position: relative;
+}
+
+#zoomSurface {
+    min-height: 100%;
 }
 
 #viewer {
-    max-width: 900px;
+    max-width: var(--reader-width);
     margin: 0 auto;
     padding: 40px 20px;
+    font-size: calc(16px * var(--content-zoom));
     line-height: 1.6;
+}
+
+body.vector-zoom #zoomSurface {
+    margin: 0 auto;
+    min-height: 0;
+}
+
+body.vector-zoom #viewer {
+    width: var(--vector-page-width);
+    max-width: none;
+    margin: 0;
+    font-size: 16px;
+    transform: scale(var(--content-zoom));
+    transform-origin: top left;
 }
 
 #viewer h1 {
@@ -167,9 +255,46 @@ button:disabled {
     padding: 0;
 }
 
+#viewer .katex-display,
+#compareViewer .katex-display {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 4px 0;
+}
+
+#viewer .katex,
+#compareViewer .katex {
+    font-size: 1.08em;
+}
+
 #viewer ul, #viewer ol {
     margin-bottom: 16px;
     padding-left: 2em;
+}
+
+#viewer table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    margin: 16px 0;
+    display: block;
+    overflow-x: auto;
+}
+
+#viewer th,
+#viewer td {
+    border: 1px solid #d0d7de;
+    padding: 8px 12px;
+    vertical-align: top;
+}
+
+#viewer th {
+    background: #f6f8fa;
+    font-weight: 600;
+}
+
+#viewer tr:nth-child(even) td {
+    background: #f6f8fa;
 }
 
 #viewer blockquote {
@@ -191,6 +316,17 @@ button:disabled {
 .mermaid-wrapper {
     margin: 20px 0;
     text-align: center;
+    cursor: zoom-in;
+}
+
+.mermaid-wrapper svg,
+#viewer img {
+    max-width: 100%;
+    height: auto;
+}
+
+#viewer img {
+    cursor: zoom-in;
 }
 
 #editor {
@@ -198,10 +334,126 @@ button:disabled {
     height: 100%;
     padding: 40px 20px;
     font-family: 'Courier New', monospace;
-    font-size: 14px;
+    font-size: calc(14px * var(--content-zoom));
     border: none;
     resize: none;
     outline: none;
+}
+
+body.compare-mode #container {
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+    overflow: hidden;
+}
+
+body.compare-mode #editor {
+    display: block;
+    border-right: 1px solid #d0d7de;
+}
+
+#compareSurface {
+    height: 100%;
+    overflow: auto;
+}
+
+#compareViewer {
+    max-width: var(--reader-width);
+    margin: 0 auto;
+    padding: 40px 20px;
+    font-size: calc(16px * var(--content-zoom));
+    line-height: 1.6;
+}
+
+#compareViewer h1,
+#compareViewer h2 {
+    border-bottom: 1px solid #d0d7de;
+    padding-bottom: 0.3em;
+    margin-bottom: 16px;
+}
+
+#compareViewer h1 {
+    font-size: 2em;
+}
+
+#compareViewer h2 {
+    margin-top: 24px;
+    font-size: 1.5em;
+}
+
+#compareViewer h3 {
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-size: 1.25em;
+}
+
+#compareViewer p {
+    margin-bottom: 16px;
+}
+
+#compareViewer code {
+    background: #f6f8fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+}
+
+#compareViewer pre {
+    background: #f6f8fa;
+    padding: 16px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin-bottom: 16px;
+}
+
+#compareViewer pre code {
+    background: none;
+    padding: 0;
+}
+
+#compareViewer ul,
+#compareViewer ol {
+    margin-bottom: 16px;
+    padding-left: 2em;
+}
+
+#compareViewer table {
+    width: 100%;
+    border-collapse: collapse;
+    border-spacing: 0;
+    margin: 16px 0;
+    display: block;
+    overflow-x: auto;
+}
+
+#compareViewer th,
+#compareViewer td {
+    border: 1px solid #d0d7de;
+    padding: 8px 12px;
+    vertical-align: top;
+}
+
+#compareViewer th,
+#compareViewer tr:nth-child(even) td {
+    background: #f6f8fa;
+}
+
+#compareViewer blockquote {
+    border-left: 4px solid #d0d7de;
+    padding-left: 16px;
+    color: #57606a;
+    margin-bottom: 16px;
+}
+
+#compareViewer a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+#compareViewer img {
+    max-width: 100%;
+    height: auto;
+    cursor: zoom-in;
 }
 
 .error {
@@ -210,6 +462,53 @@ button:disabled {
     background: #ffebe9;
     border-radius: 6px;
     margin: 20px;
+}
+
+#diagramLightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.86);
+    display: flex;
+    flex-direction: column;
+}
+
+#diagramLightbox.hidden {
+    display: none;
+}
+
+#diagramToolbar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(15, 23, 42, 0.92);
+}
+
+#diagramToolbar button {
+    min-width: 42px;
+    background: #f6f8fa;
+    color: #24292f;
+}
+
+#diagramStage {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px;
+}
+
+#diagramContent {
+    background: #ffffff;
+    transform-origin: top center;
+}
+
+#diagramContent img,
+#diagramContent svg {
+    display: block;
+    max-width: none;
 }
 
 /* Search Panel */
@@ -357,12 +656,49 @@ body.dark-mode #toolbar {
     border-bottom-color: #30363d;
 }
 
+body.dark-mode #tabsBar {
+    background: #0d1117;
+    border-bottom-color: #30363d;
+}
+
+body.dark-mode .file-tab {
+    background: #161b22;
+    border-color: #30363d;
+    color: #c9d1d9;
+}
+
+body.dark-mode .file-tab.active {
+    background: #0d1117;
+    color: #58a6ff;
+}
+
+body.dark-mode .file-tab:hover {
+    background: #21262d;
+}
+
+body.dark-mode .file-tab.active:hover {
+    background: #0d1117;
+}
+
 body.dark-mode button {
     background: #238636;
 }
 
 body.dark-mode button:hover {
     background: #2ea043;
+}
+
+body.dark-mode .file-tab {
+    background: #161b22;
+}
+
+body.dark-mode .file-tab:hover {
+    background: #21262d;
+}
+
+body.dark-mode .file-tab.active,
+body.dark-mode .file-tab.active:hover {
+    background: #0d1117;
 }
 
 body.dark-mode #editBtn {
@@ -386,29 +722,50 @@ body.dark-mode #filename {
 }
 
 body.dark-mode #viewer h1,
-body.dark-mode #viewer h2 {
+body.dark-mode #viewer h2,
+body.dark-mode #compareViewer h1,
+body.dark-mode #compareViewer h2 {
     border-bottom-color: #21262d;
 }
 
-body.dark-mode #viewer code {
+body.dark-mode #viewer code,
+body.dark-mode #compareViewer code {
     background: #161b22;
     color: #e6edf3;
 }
 
-body.dark-mode #viewer pre {
+body.dark-mode #viewer pre,
+body.dark-mode #compareViewer pre {
     background: #161b22;
 }
 
-body.dark-mode #viewer blockquote {
+body.dark-mode #viewer th,
+body.dark-mode #viewer td,
+body.dark-mode #compareViewer th,
+body.dark-mode #compareViewer td {
+    border-color: #30363d;
+}
+
+body.dark-mode #viewer th,
+body.dark-mode #viewer tr:nth-child(even) td,
+body.dark-mode #compareViewer th,
+body.dark-mode #compareViewer tr:nth-child(even) td {
+    background: #161b22;
+}
+
+body.dark-mode #viewer blockquote,
+body.dark-mode #compareViewer blockquote {
     border-left-color: #3b434b;
     color: #8b949e;
 }
 
-body.dark-mode #viewer a {
+body.dark-mode #viewer a,
+body.dark-mode #compareViewer a {
     color: #58a6ff;
 }
 
-body.dark-mode #editor {
+body.dark-mode #editor,
+body.dark-mode #compareSurface {
     background: #0d1117;
     color: #c9d1d9;
 }

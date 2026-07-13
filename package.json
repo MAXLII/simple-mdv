@@ -7,7 +7,7 @@
   "main": "index.html",
   "scripts": {
     "start": "nw .",
-    "build": "nw-builder --platforms win64 --buildDir dist/ ."
+    "build": "nwbuild \"./**/*\" --platforms win64 --buildDir dist/"
   },
   "window": {
     "title": "Simple Markdown Viewer",
@@ -18,12 +18,14 @@
   },
   "devDependencies": {
     "nw": "^0.104.1-sdk",
-    "nw-builder": "^4.16.0"
+    "nw-builder": "^4.17.10"
   },
   "dependencies": {
+    "highlight.js": "^11.11.0",
+    "katex": "^0.17.0",
     "marked": "^16.4.0",
-    "mermaid": "^11.12.0",
-    "highlight.js": "^11.11.0"
+    "marked-katex-extension": "^5.1.10",
+    "mermaid": "^11.12.0"
   },
   "repository": {
     "type": "git",

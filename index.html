@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="node_modules/highlight.js/styles/github.css" id="hljs-light">
   <link rel="stylesheet" href="node_modules/highlight.js/styles/github-dark.css" id="hljs-dark" disabled>
+  <link rel="stylesheet" href="node_modules/katex/dist/katex.min.css">
 </head>
 
 <body>
@@ -20,12 +21,18 @@
       <option value="">Recent Files</option>
     </select>
     <button id="editBtn" style="display:none;">Edit</button>
+    <button id="compareBtn" style="display:none;">Compare</button>
     <button id="exportBtn" style="display:none;">Export PDF</button>
     <button id="searchBtn">🔍 Search</button>
     <button id="tocBtn">📑 TOC</button>
+    <button id="layoutWidthBtn" title="Change reading width">Width</button>
+    <button id="zoomModeBtn" title="Toggle fixed-layout zoom">Vector</button>
+    <button id="zoomResetBtn" title="Reset zoom">100%</button>
     <button id="darkModeBtn">🌙</button>
     <span id="filename"></span>
   </div>
+
+  <div id="tabsBar" style="display:none;"></div>
 
   <!-- Search Panel -->
   <div id="searchPanel" style="display:none;">
@@ -47,8 +54,25 @@
     </div>
 
     <div id="container">
-      <div id="viewer" class="active"></div>
+      <div id="zoomSurface">
+        <div id="viewer" class="active"></div>
+      </div>
       <textarea id="editor" style="display:none;"></textarea>
+      <div id="compareSurface" style="display:none;">
+        <div id="compareViewer"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="diagramLightbox" class="hidden">
+    <div id="diagramToolbar">
+      <button id="diagramZoomOut">-</button>
+      <button id="diagramZoomReset">100%</button>
+      <button id="diagramZoomIn">+</button>
+      <button id="diagramClose">×</button>
+    </div>
+    <div id="diagramStage">
+      <div id="diagramContent"></div>
     </div>
   </div>
 
