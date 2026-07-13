@@ -3,6 +3,7 @@ node_modules/
 
 # Build output
 dist/
+out/
 
 # OS files
 .DS_Store
@@ -23,6 +24,7 @@ npm-debug.log*
 .env.local
 
 # Cache
+cache/
 .cache/
 *.cache
 /.claude
