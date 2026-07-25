@@ -49,6 +49,10 @@ This repository is based on the upstream project [KrunchMuffin/simple-markdown-v
 ### Download Pre-built Binary
 Download the latest release from the [Releases](https://github.com/MAXLII/simple-mdv/releases) page.
 
+The Windows setup wizard installs the app for the current user, can create a
+desktop shortcut, and can associate `.md` files with Simple Markdown Viewer so
+they open by double-clicking.
+
 ### Build from Source
 
 **Prerequisites:**
@@ -80,6 +84,7 @@ The built application will be in the `dist/` directory.
 
 - **Click "Open File"** button in the toolbar
 - **Drag and drop** a .md file into the window
+- **Windows Explorer**: Double-click an associated .md file
 - **Command line**: `simple-markdown-viewer file.md`
 - **Recent files** dropdown for quick access
 
