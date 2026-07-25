@@ -25,7 +25,14 @@ function Remove-PathInsideRoot {
   }
 
   if (Test-Path -LiteralPath $fullPath) {
-    Remove-Item -LiteralPath $fullPath -Recurse -Force
+    try {
+      Remove-Item -LiteralPath $fullPath -Recurse -Force
+    } catch {
+      $remainingItems = @(Get-ChildItem -LiteralPath $fullPath -Force -ErrorAction Stop)
+      if ($remainingItems.Count -ne 0) {
+        throw
+      }
+    }
   }
 }
 
@@ -75,6 +82,7 @@ $appFiles = @(
   'package.json',
   'package-lock.json',
   'icon.png',
+  'icon.ico',
   'LICENSE',
   'README.md'
 )
@@ -98,7 +106,7 @@ try {
 
 Push-Location $stageDir
 try {
-  & $NodePath $nwBuilderCli './**/*' --version $NwVersion --platform win --arch x64 --cacheDir (Join-Path $root 'cache') --outDir $outDir
+  & $NodePath $nwBuilderCli './**/*' --version $NwVersion --platform win --arch x64 --cacheDir (Join-Path $root 'cache') --outDir $outDir '--app.icon=icon.ico'
   if ($LASTEXITCODE -ne 0) {
     throw "NW Builder failed with exit code $LASTEXITCODE."
   }
@@ -117,7 +125,8 @@ if (Test-Path -LiteralPath $payloadZip) {
 }
 Compress-Archive -Path (Join-Path $outDir '*') -DestinationPath $payloadZip -Force
 
-& $cscPath /nologo /target:winexe /out:$stubExe /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:System.Windows.Forms.dll $stubSource
+$installerIcon = Join-Path $root 'icon.ico'
+& $cscPath /nologo /target:winexe /win32icon:$installerIcon /out:$stubExe /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:System.Windows.Forms.dll $stubSource
 if ($LASTEXITCODE -ne 0) {
   throw "C# installer stub compilation failed with exit code $LASTEXITCODE."
 }
