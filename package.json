@@ -1,6 +1,6 @@
 {
   "name": "simple-markdown-viewer",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Simple Markdown Viewer - A powerful desktop markdown viewer built with NW.js",
   "author": "Derek Bowes <db@bowesmail.com> (SubsKeepr Inc.)",
   "license": "MIT",
