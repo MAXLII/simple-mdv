@@ -108,7 +108,7 @@ internal static class InstallerStub
             subtitle.Location = new Point(147, 83);
             subtitle.Font = new Font("Segoe UI", 10.5F);
             subtitle.ForeColor = Color.FromArgb(179, 198, 231);
-            subtitle.Text = "A fast, focused desktop reader for Markdown";
+            subtitle.Text = "A lightweight Markdown and source-code reader";
             header.Controls.Add(subtitle);
 
             Label optionsTitle = new Label();
@@ -474,7 +474,7 @@ internal static class InstallerStub
 
     private static void CreateShortcuts(string installDir, string exePath, string uninstallScript, bool desktopShortcutEnabled)
     {
-        string iconPath = Path.Combine(installDir, "package.nw", "icon.ico");
+        string iconPath = Path.Combine(installDir, "icon.ico");
         string appIconLocation = File.Exists(iconPath)
             ? iconPath + ",0"
             : exePath + ",0";
@@ -540,7 +540,7 @@ internal static class InstallerStub
 
     private static void RegisterMarkdownAssociation(string exePath)
     {
-        string iconPath = Path.Combine(Path.GetDirectoryName(exePath), "package.nw", "icon.ico");
+        string iconPath = Path.Combine(Path.GetDirectoryName(exePath), "icon.ico");
         string iconLocation = File.Exists(iconPath)
             ? iconPath
             : exePath;
@@ -589,29 +589,35 @@ internal static class InstallerStub
 
     private static void CloseRunningApp()
     {
-        string processName = Path.GetFileNameWithoutExtension(ExeName);
-        foreach (Process process in Process.GetProcessesByName(processName))
+        string[] processNames = {
+            Path.GetFileNameWithoutExtension(ExeName),
+            "simple-markdown-viewer-runtime"
+        };
+        foreach (string processName in processNames)
         {
-            try
+            foreach (Process process in Process.GetProcessesByName(processName))
             {
-                if (process.MainWindowHandle != IntPtr.Zero)
+                try
                 {
-                    process.CloseMainWindow();
-                    if (process.WaitForExit(5000))
+                    if (process.MainWindowHandle != IntPtr.Zero)
                     {
-                        continue;
+                        process.CloseMainWindow();
+                        if (process.WaitForExit(5000))
+                        {
+                            continue;
+                        }
                     }
-                }
 
-                process.Kill();
-                process.WaitForExit(5000);
-            }
-            catch
-            {
-            }
-            finally
-            {
-                process.Dispose();
+                    process.Kill();
+                    process.WaitForExit(5000);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    process.Dispose();
+                }
             }
         }
     }

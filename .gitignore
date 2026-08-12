@@ -4,6 +4,8 @@ node_modules/
 # Build output
 dist/
 out/
+resources/
+bin/
 
 # OS files
 .DS_Store
@@ -30,3 +32,4 @@ cache/
 /.claude
 /CLAUDE.md
 /test.md
+/tests/.runtime/
