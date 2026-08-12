@@ -1,6 +1,6 @@
 # simple-mdv
 
-A powerful, feature-rich desktop Markdown viewer built with NW.js. Perfect for reading, editing, and navigating through Markdown documentation with ease.
+A lightweight desktop Markdown, plain-text, and source-code viewer built with Neutralinojs and the Windows WebView2 runtime. It supports reading, editing, and navigating documents in one tabbed window.
 
 This repository is based on the upstream project [KrunchMuffin/simple-markdown-viewer](https://github.com/KrunchMuffin/simple-markdown-viewer). The upstream project is licensed under the MIT License, which permits modification and redistribution when the original copyright and license notice are retained.
 
@@ -11,7 +11,7 @@ This repository is based on the upstream project [KrunchMuffin/simple-markdown-v
 ### 📖 **Rich Markdown Support**
 - GitHub-flavored Markdown (GFM)
 - Mermaid diagram rendering
-- Syntax highlighting for 100+ programming languages
+- Syntax highlighting for Markdown code blocks and C/C++/JavaScript/JSON source files
 - Live preview with smooth rendering
 
 ### 🧭 **Smart Navigation**
@@ -28,6 +28,7 @@ This repository is based on the upstream project [KrunchMuffin/simple-markdown-v
 
 ### ✏️ **Editing Made Easy**
 - Built-in editor with live preview toggle
+- C/C++ syntax highlighting in both preview and edit modes
 - Auto-save functionality
 - File watcher for external changes
 - Preserves formatting and styling
@@ -43,6 +44,7 @@ This repository is based on the upstream project [KrunchMuffin/simple-markdown-v
 - Drag-and-drop file loading
 - Comprehensive keyboard shortcuts
 - Command-line file opening
+- Files opened from Explorer are forwarded to the already-running app
 
 ## Installation
 
@@ -51,12 +53,13 @@ Download the latest release from the [Releases](https://github.com/MAXLII/simple
 
 The Windows setup wizard installs the app for the current user, can create a
 desktop shortcut, and can associate `.md` files with Simple Markdown Viewer so
-they open by double-clicking.
+they open by double-clicking. The Windows installer is approximately 3 MB because
+the app uses the system WebView2 runtime instead of bundling Chromium and Node.js.
 
 ### Build from Source
 
 **Prerequisites:**
-- Node.js 16 or higher
+- Node.js 18 or higher
 - npm
 
 **Steps:**
@@ -83,10 +86,15 @@ The built application will be in the `dist/` directory.
 ### Opening Files
 
 - **Click "Open File"** button in the toolbar
-- **Drag and drop** a .md file into the window
+- **Drag and drop** Markdown, text, or supported source files into the window
 - **Windows Explorer**: Double-click an associated .md file
-- **Command line**: `simple-markdown-viewer file.md`
+- **Command line**: `simple-markdown-viewer file.md` or `simple-markdown-viewer source.c`
 - **Recent files** dropdown for quick access
+
+Supported text and source extensions include `.txt`, `.c`, `.h`, `.cpp`, `.hpp`,
+`.js`, `.ts`, `.json`, `.css`, `.html`, `.xml`, `.py`, `.java`, `.sh`, `.ps1`,
+`.ini`, `.yaml`, `.toml`, `.csv`, and related variants. Markdown-only actions such
+as Compare, TOC, and Export PDF are hidden for ordinary text and source files.
 
 ### Keyboard Shortcuts
 
@@ -146,7 +154,7 @@ Click the 🌙/☀️ button in the toolbar to toggle between light and dark mod
 
 ## Technology Stack
 
-- **NW.js** - Desktop application framework
+- **Neutralinojs** - Lightweight desktop framework using the system WebView2 runtime
 - **Marked.js** - Markdown parser
 - **Mermaid.js** - Diagram rendering
 - **Highlight.js** - Syntax highlighting
@@ -160,9 +168,11 @@ Click the 🌙/☀️ button in the toolbar to toggle between light and dark mod
 simple-markdown-viewer/
 ├── index.html          # Main HTML structure
 ├── renderer.js         # Application logic
+├── document-support.js # File-type and launch-argument handling
+├── neutralino.config.json # Neutralino native/runtime configuration
 ├── styles.css          # Styling and themes
+├── scripts/            # Frontend bundler, launcher, and installer sources
 ├── package.json        # Dependencies and config
-├── CLAUDE.md          # AI development guide
 └── README.md          # This file
 ```
 
@@ -199,7 +209,7 @@ SubsKeepr Inc.
 - [Marked.js](https://marked.js.org/) - Fast Markdown parser
 - [Mermaid.js](https://mermaid.js.org/) - Diagram and charting tool
 - [Highlight.js](https://highlightjs.org/) - Syntax highlighter
-- [NW.js](https://nwjs.io/) - Desktop application platform
+- [Neutralinojs](https://neutralino.js.org/) - Lightweight desktop application platform
 
 ## Support
 
