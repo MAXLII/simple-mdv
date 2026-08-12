@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "com.maxli.simplemarkdownviewer",
+  "version": "1.1.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/resources/",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "nativeAllowList": [
+    "app.exit",
+    "filesystem.createWatcher",
+    "filesystem.getPathParts",
+    "filesystem.readBinaryFile",
+    "filesystem.readFile",
+    "filesystem.removeWatcher",
+    "filesystem.writeFile",
+    "os.open",
+    "os.showOpenDialog",
+    "window.focus",
+    "window.isMinimized",
+    "window.print",
+    "window.unminimize"
+  ],
+  "modes": {
+    "window": {
+      "title": "Simple Markdown Viewer",
+      "width": 1200,
+      "height": 900,
+      "minWidth": 720,
+      "minHeight": 520,
+      "icon": "/resources/icon.png",
+      "useSavedState": true,
+      "emitDropEvents": true,
+      "injectGlobals": true,
+      "injectClientLibrary": false,
+      "enableInspector": false,
+      "exitProcessOnClose": true
+    }
+  },
+  "logging": {
+    "enabled": false,
+    "writeToLogFile": false
+  },
+  "cli": {
+    "binaryName": "simple-markdown-viewer-runtime",
+    "resourcesPath": "/resources/",
+    "clientVersion": "6.9.0",
+    "binaryVersion": "6.9.0"
+  }
+}

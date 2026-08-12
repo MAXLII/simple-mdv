@@ -1,31 +1,27 @@
 {
   "name": "simple-markdown-viewer",
   "version": "1.1.0",
-  "description": "Simple Markdown Viewer - A powerful desktop markdown viewer built with NW.js",
+  "description": "A lightweight Markdown, text, and source code viewer built with Neutralinojs",
   "author": "Derek Bowes <db@bowesmail.com> (SubsKeepr Inc.)",
   "license": "MIT",
-  "main": "index.html",
   "scripts": {
-    "start": "nw .",
-    "build": "nwbuild \"./**/*\" --platforms win64 --buildDir dist/"
-  },
-  "window": {
-    "title": "Simple Markdown Viewer",
-    "width": 1200,
-    "height": 900,
-    "toolbar": true,
-    "icon": "icon.png"
+    "bundle": "node scripts/build-frontend.js",
+    "start": "npm run bundle && neu run",
+    "build:app": "npm run bundle && neu build --embed-resources",
+    "build": "npm run build:app && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
+    "test": "node tests/markdown-math.test.js && node tests/document-support.test.js"
   },
   "devDependencies": {
-    "nw": "^0.104.1-sdk",
-    "nw-builder": "^4.17.10"
+    "@neutralinojs/neu": "^11.7.2",
+    "esbuild": "^0.28.2"
   },
   "dependencies": {
-    "highlight.js": "^11.11.0",
+    "@neutralinojs/lib": "^6.9.0",
+    "highlight.js": "^11.12.0",
     "katex": "^0.17.0",
-    "marked": "^16.4.0",
+    "marked": "^18.0.9",
     "marked-katex-extension": "^5.1.10",
-    "mermaid": "^11.12.0"
+    "mermaid": "^11.16.1"
   },
   "repository": {
     "type": "git",
@@ -33,9 +29,11 @@
   },
   "keywords": [
     "markdown",
+    "text-viewer",
+    "source-code",
     "viewer",
     "editor",
-    "nwjs",
+    "neutralinojs",
     "desktop",
     "mermaid",
     "syntax-highlighting",

@@ -1,14 +1,77 @@
 // renderer.js
 
-// Load highlight.js as a Node module
-const hljs = require('highlight.js');
-const markedKatex = require('marked-katex-extension');
-const { pathToFileURL } = require('url');
+import { events, filesystem, init as neutralinoInit, os, window as nativeWindow } from '@neutralinojs/lib';
+import hljs from 'highlight.js/lib/core';
+import cLanguage from 'highlight.js/lib/languages/c';
+import cppLanguage from 'highlight.js/lib/languages/cpp';
+import javascriptLanguage from 'highlight.js/lib/languages/javascript';
+import jsonLanguage from 'highlight.js/lib/languages/json';
+import markedKatex from 'marked-katex-extension';
+import mermaid from 'mermaid';
+import { marked } from 'marked';
+import { normalizeLatexDisplayMath } from './markdown-math';
+import {
+  DOCUMENT_TYPES,
+  getDocumentType,
+  getSupportedPathsFromArguments,
+  isSupportedDocument
+} from './document-support';
+
+neutralinoInit();
+hljs.registerLanguage('c', cLanguage);
+hljs.registerLanguage('cpp', cppLanguage);
+hljs.registerLanguage('javascript', javascriptLanguage);
+hljs.registerLanguage('typescript', javascriptLanguage);
+hljs.registerLanguage('json', jsonLanguage);
+
+const path = {
+  basename(value) {
+    return String(value).replace(/[\\/]+$/, '').split(/[\\/]/).pop() || '';
+  },
+  dirname(value) {
+    const normalized = String(value).replace(/\//g, '\\').replace(/\\+$/, '');
+    const separatorIndex = normalized.lastIndexOf('\\');
+    return separatorIndex > 2 ? normalized.slice(0, separatorIndex) : normalized.slice(0, separatorIndex + 1);
+  },
+  extname(value) {
+    const basename = this.basename(value);
+    const dotIndex = basename.lastIndexOf('.');
+    return dotIndex > 0 ? basename.slice(dotIndex) : '';
+  },
+  isAbsolute(value) {
+    return /^(?:[a-z]:[\\/]|\\\\|\/)/i.test(String(value));
+  },
+  resolve(...values) {
+    let combined = '';
+    for (const value of values) {
+      const normalized = String(value).replace(/\//g, '\\');
+      combined = this.isAbsolute(normalized)
+        ? normalized
+        : `${combined.replace(/\\+$/, '')}\\${normalized}`;
+    }
+
+    const prefixMatch = combined.match(/^(?:[a-z]:\\|\\\\[^\\]+\\[^\\]+\\?)/i);
+    const prefix = prefixMatch ? prefixMatch[0] : '';
+    const segments = combined.slice(prefix.length).split(/\\+/);
+    const resolvedSegments = [];
+    for (const segment of segments) {
+      if (!segment || segment === '.') continue;
+      if (segment === '..') {
+        resolvedSegments.pop();
+      } else {
+        resolvedSegments.push(segment);
+      }
+    }
+    return prefix + resolvedSegments.join('\\');
+  }
+};
 
 // DOM Elements
 const viewer = document.getElementById('viewer');
 const zoomSurface = document.getElementById('zoomSurface');
 const container = document.getElementById('container');
+const editorSurface = document.getElementById('editorSurface');
+const editorHighlight = document.getElementById('editorHighlight');
 const editor = document.getElementById('editor');
 const compareSurface = document.getElementById('compareSurface');
 const compareViewer = document.getElementById('compareViewer');
@@ -53,7 +116,6 @@ let history = [];
 let historyIndex = -1;
 let searchMatches = [];
 let currentSearchIndex = -1;
-let fileWatcher = null;
 let recentFiles = JSON.parse(localStorage.getItem('recentFiles') || '[]');
 let contentZoom = Number(localStorage.getItem('contentZoom') || '1');
 let zoomMode = localStorage.getItem('zoomMode') === 'vector' ? 'vector' : 'text';
@@ -202,10 +264,16 @@ function persistActiveEditorContent() {
 }
 
 function updateFileActions() {
-  const hasFile = !!getActiveTab();
+  const activeTab = getActiveTab();
+  const hasFile = !!activeTab;
+  const isMarkdown = activeTab && activeTab.documentType.kind === 'markdown';
   editBtn.style.display = hasFile ? 'inline-block' : 'none';
-  compareBtn.style.display = hasFile ? 'inline-block' : 'none';
-  exportBtn.style.display = hasFile ? 'inline-block' : 'none';
+  compareBtn.style.display = isMarkdown ? 'inline-block' : 'none';
+  exportBtn.style.display = isMarkdown ? 'inline-block' : 'none';
+  tocBtn.style.display = isMarkdown ? 'inline-block' : 'none';
+  if (!isMarkdown) {
+    tocSidebar.classList.add('hidden');
+  }
 }
 
 function updateModeButtons() {
@@ -214,7 +282,6 @@ function updateModeButtons() {
 }
 
 function renderTabs() {
-  const path = require('path');
   tabsBar.innerHTML = '';
   tabsBar.style.display = openTabs.length > 0 ? 'flex' : 'none';
 
@@ -262,10 +329,6 @@ function closeTab(tabId) {
   if (closeIndex === -1) return;
 
   const tab = openTabs[closeIndex];
-  if (tab.watcher) {
-    tab.watcher.close();
-  }
-
   openTabs.splice(closeIndex, 1);
 
   if (activeTabId === tabId) {
@@ -280,9 +343,10 @@ function closeTab(tabId) {
 async function syncActiveTabToView() {
   const activeTab = getActiveTab();
   currentFile = activeTab ? activeTab.filePath : null;
-  filenameSpan.textContent = activeTab ? require('path').basename(activeTab.filePath) : '';
+  filenameSpan.textContent = activeTab ? path.basename(activeTab.filePath) : '';
   editor.dataset.raw = activeTab ? activeTab.content : '';
   editor.value = activeTab ? activeTab.content : '';
+  updateEditorHighlight();
   updateFileActions();
   updateModeButtons();
   renderTabs();
@@ -295,7 +359,7 @@ async function syncActiveTabToView() {
     return;
   }
 
-  await renderMarkdown(activeTab.content);
+  await renderDocument(activeTab.content, viewer, activeTab, true);
   if (viewMode === 'compare') {
     await renderMarkdownInto(activeTab.content, compareViewer, false);
   }
@@ -308,16 +372,16 @@ function setViewMode(mode) {
   document.body.classList.toggle('compare-mode', viewMode === 'compare');
 
   if (viewMode === 'preview') {
-    editor.style.display = 'none';
+    editorSurface.style.display = 'none';
     compareSurface.style.display = 'none';
     zoomSurface.style.display = 'block';
   } else if (viewMode === 'edit') {
     zoomSurface.style.display = 'none';
     compareSurface.style.display = 'none';
-    editor.style.display = 'block';
+    editorSurface.style.display = 'block';
   } else {
     zoomSurface.style.display = 'none';
-    editor.style.display = 'block';
+    editorSurface.style.display = 'block';
     compareSurface.style.display = 'block';
   }
 
@@ -350,13 +414,31 @@ window.addEventListener('load', () => {
   updateRecentFilesList();
 });
 
-// Handle file opening from command line
-if (nw.App.argv.length > 0) {
-  const filePath = nw.App.argv[0];
-  if (filePath.endsWith('.md')) {
-    loadFile(filePath);
-  }
+function openFilesFromArguments(args) {
+  getSupportedPathsFromArguments(args).forEach(filePath => loadFile(filePath));
 }
+
+async function initializeNativeOpenHandling() {
+  openFilesFromArguments(window.NL_ARGS || []);
+
+  const queueArgument = (window.NL_ARGS || []).find(arg => arg.startsWith('--open-queue='));
+  if (!queueArgument) return;
+
+  const queuePath = queueArgument.slice('--open-queue='.length);
+  setInterval(async () => {
+    try {
+      const requests = await filesystem.readFile(queuePath);
+      if (!requests.trim()) return;
+
+      await filesystem.writeFile(queuePath, '');
+      requests.split(/\r?\n/).filter(isSupportedDocument).forEach(filePath => loadFile(filePath));
+    } catch (err) {
+      // The launcher creates the queue lazily when a second file is opened.
+    }
+  }, 350);
+}
+
+events.on('ready', initializeNativeOpenHandling);
 
 // ==================== Navigation History ====================
 
@@ -414,8 +496,6 @@ function addToRecentFiles(filePath) {
 }
 
 function updateRecentFilesList() {
-  const path = require('path');
-
   // Clear existing options (except the first one)
   while (recentFilesSelect.options.length > 1) {
     recentFilesSelect.remove(1);
@@ -441,28 +521,16 @@ recentFilesSelect.addEventListener('change', (e) => {
 // ==================== File Operations ====================
 
 // Open file button
-openBtn.addEventListener('click', () => {
+openBtn.addEventListener('click', async () => {
   console.log('Open button clicked');
-
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.md,.markdown';
-  input.multiple = true;
-
-  input.addEventListener('change', function () {
-    const files = Array.from(this.files || []);
-    if (files.length > 0) {
-      files.forEach(file => {
-        const filePath = file.path || file.name;
-        console.log('File selected:', filePath);
-        if (filePath) {
-          loadFile(filePath);
-        }
-      });
-    }
+  const selectedPaths = await os.showOpenDialog('Open text files', {
+    multiSelections: true,
+    filters: [{
+      name: 'Text and source files',
+      extensions: Object.keys(DOCUMENT_TYPES).map(extension => extension.slice(1))
+    }]
   });
-
-  input.click();
+  selectedPaths.forEach(filePath => loadFile(filePath));
 });
 
 // Edit button toggle
@@ -472,10 +540,11 @@ editBtn.addEventListener('click', () => {
   if (viewMode === 'edit') {
     saveActiveFile();
     setViewMode('preview');
-    renderMarkdown(editor.value);
+    renderDocument(editor.value);
   } else {
     persistActiveEditorContent();
     editor.value = getActiveTab().content;
+    updateEditorHighlight();
     setViewMode('edit');
   }
 });
@@ -503,6 +572,7 @@ editor.addEventListener('input', () => {
 
   activeTab.content = editor.value;
   activeTab.dirty = activeTab.content !== activeTab.savedContent;
+  updateEditorHighlight();
   renderTabs();
 
   if (viewMode === 'compare') {
@@ -513,24 +583,28 @@ editor.addEventListener('input', () => {
   }
 });
 
-function loadFile(filePath, addToHistoryFlag = true) {
-  const fs = require('fs');
-  const path = require('path');
+editor.addEventListener('scroll', syncEditorHighlightScroll);
 
+async function loadFile(filePath, addToHistoryFlag = true) {
   console.log('Loading file:', filePath);
 
   try {
     const resolvedPath = path.resolve(filePath);
+    const documentType = getDocumentType(resolvedPath);
+    if (!documentType) {
+      throw new Error('Unsupported file type');
+    }
     const existingTab = openTabs.find(tab => tab.filePath === resolvedPath);
     if (existingTab) {
       activateTab(existingTab.id);
       return;
     }
 
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = await filesystem.readFile(resolvedPath);
     const tab = {
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       filePath: resolvedPath,
+      documentType,
       content,
       savedContent: content,
       dirty: false,
@@ -564,21 +638,76 @@ function loadFile(filePath, addToHistoryFlag = true) {
   }
 }
 
-function saveActiveFile() {
+async function saveActiveFile() {
   const activeTab = getActiveTab();
   if (!activeTab || !currentFile) return;
 
-  const fs = require('fs');
   activeTab.content = editor.value;
   activeTab.savedContent = editor.value;
   activeTab.dirty = false;
   editor.dataset.raw = editor.value;
-  fs.writeFileSync(currentFile, editor.value, 'utf8');
+  await filesystem.writeFile(currentFile, editor.value);
   renderTabs();
 }
 
 async function renderMarkdown(markdown) {
-  await renderMarkdownInto(markdown, viewer, true);
+  await renderDocument(markdown);
+}
+
+async function renderDocument(content, targetElement = viewer, tab = getActiveTab(), updateToc = targetElement === viewer) {
+  if (!tab) return;
+
+  if (tab.documentType.kind === 'markdown') {
+    await renderMarkdownInto(content, targetElement, updateToc);
+    return;
+  }
+
+  renderTextInto(content, targetElement, tab.documentType);
+  if (updateToc) {
+    tocContent.innerHTML = '';
+    updateZoomSurfaceSize();
+  }
+}
+
+function renderTextInto(content, targetElement, documentType) {
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  pre.className = 'source-preview';
+
+  if (documentType.language && hljs.getLanguage(documentType.language)) {
+    code.className = `language-${documentType.language}`;
+    code.innerHTML = hljs.highlight(content, { language: documentType.language }).value;
+  } else {
+    code.textContent = content;
+  }
+
+  pre.appendChild(code);
+  targetElement.innerHTML = '';
+  targetElement.appendChild(pre);
+}
+
+function updateEditorHighlight() {
+  const activeTab = getActiveTab();
+  const code = editorHighlight.querySelector('code');
+  const language = activeTab && activeTab.documentType.kind === 'code'
+    ? activeTab.documentType.language
+    : null;
+
+  editorSurface.classList.toggle('syntax-editor', !!language);
+  if (language && hljs.getLanguage(language)) {
+    code.className = `language-${language}`;
+    code.innerHTML = `${hljs.highlight(editor.value, { language }).value}\n`;
+  } else {
+    code.className = '';
+    code.textContent = `${editor.value}\n`;
+  }
+
+  syncEditorHighlightScroll();
+}
+
+function syncEditorHighlightScroll() {
+  editorHighlight.scrollTop = editor.scrollTop;
+  editorHighlight.scrollLeft = editor.scrollLeft;
 }
 
 async function renderMarkdownInto(markdown, targetElement, updateToc = false) {
@@ -591,9 +720,9 @@ async function renderMarkdownInto(markdown, targetElement, updateToc = false) {
   configureMarked();
 
   // First pass: render markdown
-  const html = marked.parse(markdown);
+  const html = marked.parse(normalizeLatexDisplayMath(markdown));
   targetElement.innerHTML = html;
-  normalizeImageSources(targetElement);
+  await normalizeImageSources(targetElement);
 
   // Second pass: render mermaid diagrams
   if (typeof mermaid !== 'undefined') {
@@ -620,32 +749,44 @@ async function renderMarkdownInto(markdown, targetElement, updateToc = false) {
   }
 }
 
-function normalizeImageSources(targetElement) {
+async function normalizeImageSources(targetElement) {
   const activeTab = getActiveTab();
   if (!activeTab) return;
 
-  const path = require('path');
   const baseDir = path.dirname(activeTab.filePath);
   const images = targetElement.querySelectorAll('img');
 
-  images.forEach(img => {
+  await Promise.all(Array.from(images).map(async img => {
     const rawSrc = img.getAttribute('src');
     if (!rawSrc || isExternalResource(rawSrc)) {
       return;
     }
 
-    const decodedSrc = safeDecodeUri(rawSrc).replace(/\\/g, path.sep);
+    const decodedSrc = safeDecodeUri(rawSrc);
     const absolutePath = path.isAbsolute(decodedSrc)
       ? decodedSrc
       : path.resolve(baseDir, decodedSrc);
 
-    img.src = pathToFileURL(absolutePath).href;
-  });
+    try {
+      const data = await filesystem.readBinaryFile(absolutePath);
+      const mimeTypes = {
+        '.gif': 'image/gif',
+        '.jpeg': 'image/jpeg',
+        '.jpg': 'image/jpeg',
+        '.png': 'image/png',
+        '.svg': 'image/svg+xml',
+        '.webp': 'image/webp'
+      };
+      const mimeType = mimeTypes[path.extname(absolutePath).toLowerCase()] || 'application/octet-stream';
+      img.src = URL.createObjectURL(new Blob([data], { type: mimeType }));
+    } catch (err) {
+      console.error('Unable to load local image:', absolutePath, err);
+    }
+  }));
 }
 
 function isExternalResource(src) {
-  const path = require('path');
-  if (path.win32.isAbsolute(src) || path.posix.isAbsolute(src)) {
+  if (path.isAbsolute(src)) {
     return false;
   }
 
@@ -675,7 +816,6 @@ function setupLinkHandling() {
     if (href.endsWith('.md') || href.endsWith('.markdown')) {
       e.preventDefault();
 
-      const path = require('path');
       let targetPath;
 
       // Handle relative paths
@@ -692,7 +832,7 @@ function setupLinkHandling() {
     // Let external links open normally
     else if (href.startsWith('http://') || href.startsWith('https://')) {
       e.preventDefault();
-      require('nw.gui').Shell.openExternal(href);
+      os.open(href);
     }
     // Handle anchor links (headings)
     else if (href.startsWith('#')) {
@@ -786,13 +926,7 @@ darkModeBtn.addEventListener('click', () => {
 });
 
 function toggleHighlightTheme(isDark) {
-  const lightTheme = document.getElementById('hljs-light');
-  const darkTheme = document.getElementById('hljs-dark');
-
-  if (lightTheme && darkTheme) {
-    lightTheme.disabled = isDark;
-    darkTheme.disabled = !isDark;
-  }
+  document.body.dataset.highlightTheme = isDark ? 'dark' : 'light';
 }
 
 // ==================== Search Functionality ====================
@@ -978,85 +1112,47 @@ function generateTableOfContents() {
 
 // ==================== Export to PDF ====================
 
-exportBtn.addEventListener('click', () => {
+exportBtn.addEventListener('click', async () => {
   if (!currentFile) return;
-
-  const path = require('path');
-  const fs = require('fs');
-
-  // Get the directory and filename
-  const dir = path.dirname(currentFile);
-  const basename = path.basename(currentFile, path.extname(currentFile));
-  const pdfPath = path.join(dir, `${basename}.pdf`);
-
-  // Use NW.js window print API
-  const win = nw.Window.get();
-
-  // Create a temporary print-friendly view
-  const printWindow = window.open('', '', 'width=800,height=600');
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>${basename}</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
-        h1 { border-bottom: 2px solid #333; }
-        h2 { border-bottom: 1px solid #666; }
-        code { background: #f5f5f5; padding: 2px 4px; }
-        pre { background: #f5f5f5; padding: 12px; overflow-x: auto; }
-      </style>
-    </head>
-    <body>${viewer.innerHTML}</body>
-    </html>
-  `);
-  printWindow.document.close();
-
-  // Wait a bit for content to load, then print
-  setTimeout(() => {
-    printWindow.print();
-  }, 500);
+  await nativeWindow.print();
 });
 
 // ==================== File Watcher ====================
 
-function setupFileWatcher(tab) {
-  const fs = require('fs');
-
+async function setupFileWatcher(tab) {
   try {
-    if (tab.watcher) {
-      tab.watcher.close();
-    }
-
-    tab.watcher = fs.watch(tab.filePath, (eventType, filename) => {
-      if (eventType === 'change') {
-        console.log('File changed, reloading...', tab.filePath);
-
-        if (tab.dirty) {
-          return;
-        }
-
-        try {
-          const content = fs.readFileSync(tab.filePath, 'utf8');
-          tab.content = content;
-          tab.savedContent = content;
-
-          if (tab.id === activeTabId && viewMode === 'preview') {
-            editor.dataset.raw = content;
-            editor.value = content;
-            renderMarkdown(content);
-          }
-        } catch (err) {
-          console.error('Error reloading file:', err);
-        }
-      }
-    });
-
+    tab.watcher = await filesystem.createWatcher(path.dirname(tab.filePath));
     console.log('File watcher set up for:', tab.filePath);
   } catch (err) {
     console.error('Error setting up file watcher:', err);
   }
 }
+
+events.on('watchFile', async event => {
+  if (event.detail.action !== 'modified') return;
+
+  const changedPath = path.resolve(event.detail.dir, event.detail.filename);
+  const matchingTabs = openTabs.filter(tab =>
+    tab.watcher === event.detail.id &&
+    tab.filePath.toLowerCase() === changedPath.toLowerCase() &&
+    !tab.dirty
+  );
+
+  for (const tab of matchingTabs) {
+    try {
+      const content = await filesystem.readFile(tab.filePath);
+      tab.content = content;
+      tab.savedContent = content;
+      if (tab.id === activeTabId && viewMode === 'preview') {
+        editor.dataset.raw = content;
+        editor.value = content;
+        await renderDocument(content);
+      }
+    } catch (err) {
+      console.error('Error reloading file:', err);
+    }
+  }
+});
 
 // ==================== Keyboard Shortcuts ====================
 
@@ -1098,7 +1194,7 @@ document.addEventListener('keydown', (e) => {
     } else if (isEditMode) {
       saveActiveFile();
       setViewMode('preview');
-      renderMarkdown(editor.value);
+      renderDocument(editor.value);
     } else if (searchPanel.style.display !== 'none') {
       searchClose.click();
     }
@@ -1143,20 +1239,12 @@ document.addEventListener('wheel', (e) => {
 
 // ==================== Drag and Drop ====================
 
-document.addEventListener('dragover', (e) => {
-  e.preventDefault();
-});
-
-document.addEventListener('drop', (e) => {
-  e.preventDefault();
-  const files = e.dataTransfer.files;
-  if (files.length > 0) {
-    Array.from(files).forEach(file => {
-      if (file.path && file.path.endsWith('.md')) {
-        loadFile(file.path);
-      }
-    });
-  }
+events.on('filesDropped', event => {
+  (event.detail || []).forEach(filePath => {
+    if (isSupportedDocument(filePath)) {
+      loadFile(filePath);
+    }
+  });
 });
 
 console.log('Renderer loaded');
