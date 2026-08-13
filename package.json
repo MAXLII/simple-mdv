@@ -9,7 +9,7 @@
     "start": "npm run bundle && neu run",
     "build:app": "npm run bundle && neu build --embed-resources",
     "build": "npm run build:app && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
-    "test": "node tests/markdown-math.test.js && node tests/document-support.test.js"
+    "test": "node tests/markdown-math.test.js && node tests/document-support.test.js && node tests/workspace-support.test.js"
   },
   "devDependencies": {
     "@neutralinojs/neu": "^11.7.2",

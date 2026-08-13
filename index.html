@@ -15,6 +15,7 @@
     <button id="forwardBtn" disabled>→</button>
     <div class="toolbar-separator"></div>
     <button id="openBtn">Open File</button>
+    <button id="openFolderBtn">Open Folder</button>
     <select id="recentFiles">
       <option value="">Recent Files</option>
     </select>
@@ -42,6 +43,17 @@
   </div>
 
   <div id="main-container">
+    <aside id="workspaceSidebar" class="hidden">
+      <div id="workspaceHeader">
+        <div>
+          <span class="sidebar-label">EXPLORER</span>
+          <strong id="workspaceName">No Folder Open</strong>
+        </div>
+        <button id="workspaceCloseBtn" title="Close folder">✕</button>
+      </div>
+      <div id="workspaceTree" role="tree"></div>
+    </aside>
+
     <!-- Table of Contents Sidebar -->
     <div id="tocSidebar" class="hidden">
       <div id="tocHeader">

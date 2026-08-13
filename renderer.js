@@ -16,6 +16,11 @@ import {
   getSupportedPathsFromArguments,
   isSupportedDocument
 } from './document-support';
+import {
+  isDirectoryEntry,
+  shouldShowWorkspaceEntry,
+  sortWorkspaceEntries
+} from './workspace-support';
 
 neutralinoInit();
 hljs.registerLanguage('c', cLanguage);
@@ -79,6 +84,7 @@ const filenameSpan = document.getElementById('filename');
 const editBtn = document.getElementById('editBtn');
 const compareBtn = document.getElementById('compareBtn');
 const openBtn = document.getElementById('openBtn');
+const openFolderBtn = document.getElementById('openFolderBtn');
 const backBtn = document.getElementById('backBtn');
 const forwardBtn = document.getElementById('forwardBtn');
 const darkModeBtn = document.getElementById('darkModeBtn');
@@ -105,6 +111,10 @@ const diagramZoomOut = document.getElementById('diagramZoomOut');
 const diagramZoomReset = document.getElementById('diagramZoomReset');
 const diagramZoomIn = document.getElementById('diagramZoomIn');
 const diagramClose = document.getElementById('diagramClose');
+const workspaceSidebar = document.getElementById('workspaceSidebar');
+const workspaceName = document.getElementById('workspaceName');
+const workspaceTree = document.getElementById('workspaceTree');
+const workspaceCloseBtn = document.getElementById('workspaceCloseBtn');
 
 // State
 let currentFile = null;
@@ -121,6 +131,7 @@ let contentZoom = Number(localStorage.getItem('contentZoom') || '1');
 let zoomMode = localStorage.getItem('zoomMode') === 'vector' ? 'vector' : 'text';
 let layoutWidthMode = localStorage.getItem('layoutWidthMode') || 'standard';
 let diagramZoom = 1;
+let currentWorkspacePath = null;
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
@@ -343,6 +354,7 @@ function closeTab(tabId) {
 async function syncActiveTabToView() {
   const activeTab = getActiveTab();
   currentFile = activeTab ? activeTab.filePath : null;
+  updateWorkspaceSelection();
   filenameSpan.textContent = activeTab ? path.basename(activeTab.filePath) : '';
   editor.dataset.raw = activeTab ? activeTab.content : '';
   editor.value = activeTab ? activeTab.content : '';
@@ -519,6 +531,126 @@ recentFilesSelect.addEventListener('change', (e) => {
 });
 
 // ==================== File Operations ====================
+
+function updateWorkspaceSelection() {
+  workspaceTree.querySelectorAll('.workspace-file.active').forEach(element => {
+    element.classList.remove('active');
+  });
+  if (!currentFile) return;
+
+  workspaceTree.querySelectorAll('.workspace-file').forEach(element => {
+    if (element.dataset.path.toLowerCase() === currentFile.toLowerCase()) {
+      element.classList.add('active');
+    }
+  });
+}
+
+function createWorkspaceFile(entry, filePath) {
+  const item = document.createElement('li');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'workspace-entry workspace-file';
+  button.dataset.path = filePath;
+  button.title = filePath;
+  button.innerHTML = '<span class="workspace-entry-icon">◇</span>';
+
+  const label = document.createElement('span');
+  label.textContent = entry.entry;
+  button.appendChild(label);
+  button.addEventListener('click', () => loadFile(filePath));
+
+  item.appendChild(button);
+  return item;
+}
+
+function createWorkspaceDirectory(entry, directoryPath) {
+  const item = document.createElement('li');
+  item.className = 'workspace-directory';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'workspace-entry workspace-folder';
+  button.title = directoryPath;
+  button.innerHTML = '<span class="workspace-arrow">›</span><span class="workspace-folder-icon">▱</span>';
+
+  const label = document.createElement('span');
+  label.textContent = entry.entry;
+  button.appendChild(label);
+
+  const children = document.createElement('ul');
+  children.className = 'workspace-children hidden';
+  button.addEventListener('click', async () => {
+    const willOpen = children.classList.contains('hidden');
+    children.classList.toggle('hidden', !willOpen);
+    item.classList.toggle('expanded', willOpen);
+    if (willOpen && !children.dataset.loaded) {
+      await loadWorkspaceDirectory(directoryPath, children);
+    }
+  });
+
+  item.appendChild(button);
+  item.appendChild(children);
+  return item;
+}
+
+async function loadWorkspaceDirectory(directoryPath, target) {
+  target.innerHTML = '<li class="workspace-status">Loading…</li>';
+  try {
+    const entries = await filesystem.readDirectory(directoryPath, { recursive: false });
+    const visibleEntries = sortWorkspaceEntries(
+      entries.filter(entry => shouldShowWorkspaceEntry(entry, isSupportedDocument))
+    );
+    target.innerHTML = '';
+    target.dataset.loaded = 'true';
+
+    if (visibleEntries.length === 0) {
+      target.innerHTML = '<li class="workspace-status">No supported files</li>';
+      return;
+    }
+
+    for (const entry of visibleEntries) {
+      const entryPath = path.isAbsolute(entry.path)
+        ? path.resolve(entry.path)
+        : path.resolve(directoryPath, entry.path || entry.entry);
+      target.appendChild(isDirectoryEntry(entry)
+        ? createWorkspaceDirectory(entry, entryPath)
+        : createWorkspaceFile(entry, entryPath));
+    }
+    updateWorkspaceSelection();
+  } catch (err) {
+    console.error('Error reading folder:', err);
+    target.innerHTML = '<li class="workspace-status error-text">Unable to read folder</li>';
+  }
+}
+
+async function openWorkspace(folderPath) {
+  if (!folderPath) return;
+  currentWorkspacePath = path.resolve(folderPath);
+  workspaceName.textContent = path.basename(currentWorkspacePath) || currentWorkspacePath;
+  workspaceName.title = currentWorkspacePath;
+  workspaceSidebar.classList.remove('hidden');
+  workspaceTree.innerHTML = '';
+
+  const root = document.createElement('ul');
+  root.className = 'workspace-root';
+  workspaceTree.appendChild(root);
+  await loadWorkspaceDirectory(currentWorkspacePath, root);
+}
+
+openFolderBtn.addEventListener('click', async () => {
+  const folderPath = await os.showFolderDialog('Open folder', {
+    defaultPath: currentWorkspacePath || undefined
+  });
+  await openWorkspace(folderPath);
+});
+
+workspaceCloseBtn.addEventListener('click', () => {
+  currentWorkspacePath = null;
+  workspaceTree.innerHTML = '';
+  workspaceName.textContent = 'No Folder Open';
+  workspaceName.removeAttribute('title');
+  workspaceSidebar.classList.add('hidden');
+});
 
 // Open file button
 openBtn.addEventListener('click', async () => {
@@ -1158,7 +1290,7 @@ events.on('watchFile', async event => {
 
 document.addEventListener('keydown', (e) => {
   // Ctrl+O: Open file
-  if (e.ctrlKey && e.key === 'o') {
+  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
     openBtn.click();
   }
@@ -1198,6 +1330,12 @@ document.addEventListener('keydown', (e) => {
     } else if (searchPanel.style.display !== 'none') {
       searchClose.click();
     }
+  }
+
+  // Ctrl+Shift+O: Open folder
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
+    e.preventDefault();
+    openFolderBtn.click();
   }
 
   // Ctrl+F: Open search
