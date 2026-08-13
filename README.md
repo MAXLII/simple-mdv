@@ -41,6 +41,7 @@ This repository is based on the upstream project [KrunchMuffin/simple-markdown-v
 
 ### ⚡ **Productivity Features**
 - Export to PDF
+- VS Code-style folder explorer with on-demand directory expansion
 - Drag-and-drop file loading
 - Comprehensive keyboard shortcuts
 - Command-line file opening
@@ -86,6 +87,7 @@ The built application will be in the `dist/` directory.
 ### Opening Files
 
 - **Click "Open File"** button in the toolbar
+- **Click "Open Folder"** to browse a project from the Explorer sidebar
 - **Drag and drop** Markdown, text, or supported source files into the window
 - **Windows Explorer**: Double-click an associated .md file
 - **Command line**: `simple-markdown-viewer file.md` or `simple-markdown-viewer source.c`
@@ -101,6 +103,7 @@ as Compare, TOC, and Export PDF are hidden for ordinary text and source files.
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+O` | Open file |
+| `Ctrl+Shift+O` | Open folder |
 | `Ctrl+E` | Toggle edit mode |
 | `Ctrl+S` | Save file (in edit mode) |
 | `Ctrl+F` | Open search |
