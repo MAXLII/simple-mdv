@@ -9,11 +9,23 @@ import jsonLanguage from 'highlight.js/lib/languages/json';
 import markedKatex from 'marked-katex-extension';
 import mermaid from 'mermaid';
 import { marked } from 'marked';
+import { createOrderedQueue } from './async-lifecycle';
+import { getDomElements } from './app-dom';
+import { calculateSyncedScrollTop } from './compare-support';
+import { confirmAndDisposeTab, createFileWatcherManager, disposeTabResources, saveTab } from './document-lifecycle';
+import { classifyLink } from './link-support';
+import { setupPreviewLinkHandling } from './link-navigation';
+import { createMarkdownRenderer } from './markdown-renderer';
 import { normalizeLatexDisplayMath } from './markdown-math';
+import { consumeOpenRequestDirectory } from './open-request-queue';
+import { highlightTextMatches } from './search-support';
+import { createTabState, updateTabContent } from './tab-state';
 import {
+  applyRefreshedDocumentContent,
   DOCUMENT_TYPES,
   getDocumentType,
   getSupportedPathsFromArguments,
+  isDocumentRefreshShortcut,
   isSupportedDocument
 } from './document-support';
 import {
@@ -72,49 +84,16 @@ const path = {
 };
 
 // DOM Elements
-const viewer = document.getElementById('viewer');
-const zoomSurface = document.getElementById('zoomSurface');
-const container = document.getElementById('container');
-const editorSurface = document.getElementById('editorSurface');
-const editorHighlight = document.getElementById('editorHighlight');
-const editor = document.getElementById('editor');
-const compareSurface = document.getElementById('compareSurface');
-const compareViewer = document.getElementById('compareViewer');
-const filenameSpan = document.getElementById('filename');
-const editBtn = document.getElementById('editBtn');
-const compareBtn = document.getElementById('compareBtn');
-const openBtn = document.getElementById('openBtn');
-const openFolderBtn = document.getElementById('openFolderBtn');
-const backBtn = document.getElementById('backBtn');
-const forwardBtn = document.getElementById('forwardBtn');
-const darkModeBtn = document.getElementById('darkModeBtn');
-const searchBtn = document.getElementById('searchBtn');
-const searchPanel = document.getElementById('searchPanel');
-const searchInput = document.getElementById('searchInput');
-const searchPrev = document.getElementById('searchPrev');
-const searchNext = document.getElementById('searchNext');
-const searchClose = document.getElementById('searchClose');
-const searchCount = document.getElementById('searchCount');
-const tocBtn = document.getElementById('tocBtn');
-const tocSidebar = document.getElementById('tocSidebar');
-const tocContent = document.getElementById('tocContent');
-const tocCloseBtn = document.getElementById('tocCloseBtn');
-const recentFilesSelect = document.getElementById('recentFiles');
-const tabsBar = document.getElementById('tabsBar');
-const exportBtn = document.getElementById('exportBtn');
-const layoutWidthBtn = document.getElementById('layoutWidthBtn');
-const zoomModeBtn = document.getElementById('zoomModeBtn');
-const zoomResetBtn = document.getElementById('zoomResetBtn');
-const diagramLightbox = document.getElementById('diagramLightbox');
-const diagramContent = document.getElementById('diagramContent');
-const diagramZoomOut = document.getElementById('diagramZoomOut');
-const diagramZoomReset = document.getElementById('diagramZoomReset');
-const diagramZoomIn = document.getElementById('diagramZoomIn');
-const diagramClose = document.getElementById('diagramClose');
-const workspaceSidebar = document.getElementById('workspaceSidebar');
-const workspaceName = document.getElementById('workspaceName');
-const workspaceTree = document.getElementById('workspaceTree');
-const workspaceCloseBtn = document.getElementById('workspaceCloseBtn');
+const {
+  viewer, zoomSurface, container, editorSurface, editorHighlight, editor,
+  compareSurface, compareViewer, filename: filenameSpan, editBtn, compareBtn,
+  openBtn, openFolderBtn, backBtn, forwardBtn, darkModeBtn, searchBtn,
+  searchPanel, searchInput, searchPrev, searchNext, searchClose, searchCount,
+  tocBtn, tocSidebar, tocContent, tocCloseBtn, recentFiles: recentFilesSelect,
+  tabsBar, exportBtn, layoutWidthBtn, zoomModeBtn, zoomResetBtn, diagramLightbox,
+  diagramContent, diagramZoomOut, diagramZoomReset, diagramZoomIn, diagramClose,
+  workspaceSidebar, workspaceName, workspaceTree, workspaceCloseBtn, appNotification
+} = getDomElements(document);
 
 // State
 let currentFile = null;
@@ -132,6 +111,7 @@ let zoomMode = localStorage.getItem('zoomMode') === 'vector' ? 'vector' : 'text'
 let layoutWidthMode = localStorage.getItem('layoutWidthMode') || 'standard';
 let diagramZoom = 1;
 let currentWorkspacePath = null;
+let notificationTimer = null;
 
 const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 3;
@@ -170,6 +150,45 @@ function configureMarked() {
 
   markedConfigured = true;
 }
+
+const markdownRenderer = createMarkdownRenderer({
+  window,
+  marked,
+  mermaid,
+  hljs,
+  filesystem,
+  path,
+  normalizeLatexDisplayMath,
+  configureMarked,
+  isRenderAllowed: tab => openTabs.includes(tab) && tab.id === activeTabId,
+  onRendered(targetElement, updateToc) {
+    if (updateToc) generateTableOfContents();
+    if (targetElement === viewer) updateZoomSurfaceSize();
+  }
+});
+
+const renderDocument = (content, targetElement = viewer, tab = getActiveTab(), updateToc = targetElement === viewer) =>
+  markdownRenderer.renderDocument(content, targetElement, tab, updateToc);
+const renderMarkdownInto = (content, targetElement, updateToc = false, tab = getActiveTab()) =>
+  markdownRenderer.renderMarkdownInto(content, targetElement, tab, updateToc);
+
+const fileWatchers = createFileWatcherManager({
+  events,
+  filesystem,
+  path,
+  getOpenTabs: () => openTabs,
+  applyContent: (tab, content) => applyRefreshedDocumentContent(openTabs, tab.id, content),
+  async onReload(tab, content) {
+    if (tab.id === activeTabId && viewMode === 'preview') {
+      editor.dataset.raw = content;
+      editor.value = content;
+      await renderDocument(content, viewer, tab, true);
+    }
+  },
+  onError(message, error) {
+    console.error(`${message}:`, error);
+  }
+});
 
 function clamp(value, min, max) {
   return Math.min(Math.max(value, min), max);
@@ -270,8 +289,7 @@ function persistActiveEditorContent() {
   const activeTab = getActiveTab();
   if (!activeTab || viewMode === 'preview') return;
 
-  activeTab.content = editor.value;
-  activeTab.dirty = activeTab.content !== activeTab.savedContent;
+  updateTabContent(activeTab, editor.value);
 }
 
 function updateFileActions() {
@@ -311,9 +329,9 @@ function renderTabs() {
     close.textContent = 'x';
     close.title = 'Close';
 
-    close.addEventListener('click', (e) => {
+    close.addEventListener('click', async (e) => {
       e.stopPropagation();
-      closeTab(tab.id);
+      await closeTab(tab.id);
     });
 
     tabButton.addEventListener('click', () => {
@@ -329,17 +347,39 @@ function renderTabs() {
 function activateTab(tabId) {
   if (activeTabId === tabId) return;
 
+  clearTimeout(compareRenderTimer);
   persistActiveEditorContent();
   activeTabId = tabId;
   viewMode = 'preview';
   syncActiveTabToView();
 }
 
-function closeTab(tabId) {
+async function closeTab(tabId) {
   const closeIndex = openTabs.findIndex(tab => tab.id === tabId);
-  if (closeIndex === -1) return;
+  if (closeIndex === -1) return false;
 
   const tab = openTabs[closeIndex];
+  clearTimeout(compareRenderTimer);
+  if (tab.id === activeTabId) persistActiveEditorContent();
+  const shouldClose = await confirmAndDisposeTab(
+    tab,
+    item => window.confirm(`Close ${path.basename(item.filePath)} without saving your changes?`),
+    async item => {
+      markdownRenderer.releaseTab(item);
+      try {
+        await disposeTabResources(
+          item,
+          watcher => filesystem.removeWatcher(watcher),
+          url => URL.revokeObjectURL(url)
+        );
+      } catch (error) {
+        console.error('Unable to fully release tab resources:', error);
+        showAppNotification(`Unable to release file watcher: ${error.message}`);
+      }
+    }
+  );
+  if (!shouldClose) return false;
+
   openTabs.splice(closeIndex, 1);
 
   if (activeTabId === tabId) {
@@ -348,7 +388,8 @@ function closeTab(tabId) {
     viewMode = 'preview';
   }
 
-  syncActiveTabToView();
+  await syncActiveTabToView();
+  return true;
 }
 
 async function syncActiveTabToView() {
@@ -365,12 +406,22 @@ async function syncActiveTabToView() {
   clearSearch();
 
   if (!activeTab) {
+    markdownRenderer.invalidate(viewer);
+    markdownRenderer.invalidate(compareViewer);
     viewer.innerHTML = '';
     compareViewer.innerHTML = '';
+    markdownRenderer.releaseTargetResources(viewer);
+    markdownRenderer.releaseTargetResources(compareViewer);
     setViewMode('preview');
     return;
   }
 
+  markdownRenderer.invalidate(viewer);
+  markdownRenderer.invalidate(compareViewer);
+  markdownRenderer.releaseTargetResources(viewer);
+  markdownRenderer.releaseTargetResources(compareViewer);
+  viewer.replaceChildren();
+  compareViewer.replaceChildren();
   await renderDocument(activeTab.content, viewer, activeTab, true);
   if (viewMode === 'compare') {
     await renderMarkdownInto(activeTab.content, compareViewer, false);
@@ -412,7 +463,7 @@ window.addEventListener('load', () => {
     mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
-      securityLevel: 'loose'
+      securityLevel: 'strict'
     });
   }
 
@@ -421,31 +472,47 @@ window.addEventListener('load', () => {
   // Setup link handling
   setupLinkHandling();
   setupDiagramLightbox();
+  setupWebViewNavigationGuard();
 
   // Load recent files
   updateRecentFilesList();
 });
 
-function openFilesFromArguments(args) {
-  getSupportedPathsFromArguments(args).forEach(filePath => loadFile(filePath));
+const enqueueOpenFile = createOrderedQueue(({ filePath, addToHistoryFlag = true }) =>
+  loadFile(filePath, addToHistoryFlag));
+
+async function openFilesInOrder(filePaths) {
+  for (const filePath of filePaths.filter(isSupportedDocument)) {
+    await enqueueOpenFile({ filePath });
+  }
+}
+
+async function openFilesFromArguments(args) {
+  await openFilesInOrder(getSupportedPathsFromArguments(args));
 }
 
 async function initializeNativeOpenHandling() {
-  openFilesFromArguments(window.NL_ARGS || []);
+  await openFilesFromArguments(window.NL_ARGS || []);
 
-  const queueArgument = (window.NL_ARGS || []).find(arg => arg.startsWith('--open-queue='));
+  const queueArgument = (window.NL_ARGS || []).find(arg => arg.startsWith('--open-queue-dir='));
   if (!queueArgument) return;
 
-  const queuePath = queueArgument.slice('--open-queue='.length);
+  const queueDirectory = queueArgument.slice('--open-queue-dir='.length);
+  let consumingRequests = false;
   setInterval(async () => {
+    if (consumingRequests) return;
+    consumingRequests = true;
     try {
-      const requests = await filesystem.readFile(queuePath);
-      if (!requests.trim()) return;
-
-      await filesystem.writeFile(queuePath, '');
-      requests.split(/\r?\n/).filter(isSupportedDocument).forEach(filePath => loadFile(filePath));
+      await consumeOpenRequestDirectory(queueDirectory, {
+        readDirectory: directory => filesystem.readDirectory(directory, { recursive: false }),
+        readFile: requestPath => filesystem.readFile(requestPath),
+        removeFile: requestPath => filesystem.removeFile(requestPath),
+        resolve: (...parts) => path.resolve(...parts)
+      }, openFilesInOrder);
     } catch (err) {
-      // The launcher creates the queue lazily when a second file is opened.
+      console.error('Unable to consume open requests:', err);
+    } finally {
+      consumingRequests = false;
     }
   }, 350);
 }
@@ -662,17 +729,17 @@ openBtn.addEventListener('click', async () => {
       extensions: Object.keys(DOCUMENT_TYPES).map(extension => extension.slice(1))
     }]
   });
-  selectedPaths.forEach(filePath => loadFile(filePath));
+  await openFilesInOrder(selectedPaths);
 });
 
 // Edit button toggle
-editBtn.addEventListener('click', () => {
+editBtn.addEventListener('click', async () => {
   if (!currentFile) return;
 
   if (viewMode === 'edit') {
-    saveActiveFile();
+    if (!await saveActiveFile()) return;
     setViewMode('preview');
-    renderDocument(editor.value);
+    await renderDocument(editor.value);
   } else {
     persistActiveEditorContent();
     editor.value = getActiveTab().content;
@@ -685,7 +752,7 @@ compareBtn.addEventListener('click', async () => {
   if (!currentFile) return;
 
   if (viewMode === 'compare') {
-    saveActiveFile();
+    if (!await saveActiveFile()) return;
     setViewMode('preview');
     await renderMarkdown(editor.value);
   } else {
@@ -693,29 +760,48 @@ compareBtn.addEventListener('click', async () => {
     editor.value = getActiveTab().content;
     await renderMarkdownInto(editor.value, compareViewer, false);
     setViewMode('compare');
+    syncCompareScroll(editor, compareSurface);
   }
 });
 
 let compareRenderTimer = null;
+let isSyncingCompareScroll = false;
+
+function syncCompareScroll(source, target) {
+  if (viewMode !== 'compare' || isSyncingCompareScroll) return;
+
+  isSyncingCompareScroll = true;
+  target.scrollTop = calculateSyncedScrollTop(source, target);
+  requestAnimationFrame(() => {
+    isSyncingCompareScroll = false;
+  });
+}
 
 editor.addEventListener('input', () => {
   const activeTab = getActiveTab();
   if (!activeTab) return;
 
-  activeTab.content = editor.value;
-  activeTab.dirty = activeTab.content !== activeTab.savedContent;
+  updateTabContent(activeTab, editor.value);
   updateEditorHighlight();
   renderTabs();
 
   if (viewMode === 'compare') {
     clearTimeout(compareRenderTimer);
-    compareRenderTimer = setTimeout(() => {
-      renderMarkdownInto(editor.value, compareViewer, false);
+    compareRenderTimer = setTimeout(async () => {
+      await renderMarkdownInto(editor.value, compareViewer, false);
+      syncCompareScroll(editor, compareSurface);
     }, 200);
   }
 });
 
-editor.addEventListener('scroll', syncEditorHighlightScroll);
+editor.addEventListener('scroll', () => {
+  syncEditorHighlightScroll();
+  syncCompareScroll(editor, compareSurface);
+});
+
+compareSurface.addEventListener('scroll', () => {
+  syncCompareScroll(compareSurface, editor);
+});
 
 async function loadFile(filePath, addToHistoryFlag = true) {
   console.log('Loading file:', filePath);
@@ -729,19 +815,16 @@ async function loadFile(filePath, addToHistoryFlag = true) {
     const existingTab = openTabs.find(tab => tab.filePath === resolvedPath);
     if (existingTab) {
       activateTab(existingTab.id);
-      return;
+      return true;
     }
 
     const content = await filesystem.readFile(resolvedPath);
-    const tab = {
+    const tab = createTabState({
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
       filePath: resolvedPath,
       documentType,
-      content,
-      savedContent: content,
-      dirty: false,
-      watcher: null
-    };
+      content
+    });
 
     persistActiveEditorContent();
     openTabs.push(tab);
@@ -749,7 +832,7 @@ async function loadFile(filePath, addToHistoryFlag = true) {
     currentFile = resolvedPath;
     viewMode = 'preview';
 
-    syncActiveTabToView();
+    await syncActiveTabToView();
 
     // Add to history
     if (addToHistoryFlag) {
@@ -762,60 +845,58 @@ async function loadFile(filePath, addToHistoryFlag = true) {
     addToRecentFiles(resolvedPath);
 
     // Setup file watcher
-    setupFileWatcher(tab);
+    await fileWatchers.setup(tab);
+
+    return true;
 
   } catch (err) {
     console.error('Error loading file:', err);
-    viewer.innerHTML = `<div class="error">Error loading file: ${err.message}</div>`;
+    showAppNotification(`Unable to open ${path.basename(filePath)}: ${err.message}`);
+    return false;
   }
 }
 
 async function saveActiveFile() {
   const activeTab = getActiveTab();
-  if (!activeTab || !currentFile) return;
+  if (!activeTab || !currentFile) return false;
 
-  activeTab.content = editor.value;
-  activeTab.savedContent = editor.value;
-  activeTab.dirty = false;
-  editor.dataset.raw = editor.value;
-  await filesystem.writeFile(currentFile, editor.value);
-  renderTabs();
+  const content = editor.value;
+  try {
+    await saveTab(activeTab, content, (filePath, value) => filesystem.writeFile(filePath, value));
+    editor.dataset.raw = content;
+    renderTabs();
+    return true;
+  } catch (error) {
+    updateTabContent(activeTab, content);
+    renderTabs();
+    console.error('Unable to save file:', error);
+    showAppNotification(`Unable to save ${path.basename(activeTab.filePath)}: ${error.message}`);
+    return false;
+  }
+}
+
+async function refreshActiveDocument() {
+  const activeTab = getActiveTab();
+  if (!activeTab) return;
+
+  persistActiveEditorContent();
+
+  try {
+    if (!activeTab.dirty) {
+      const content = await filesystem.readFile(activeTab.filePath);
+      applyRefreshedDocumentContent(openTabs, activeTab.id, content);
+    }
+
+    if (activeTab.id === activeTabId) {
+      await syncActiveTabToView();
+    }
+  } catch (err) {
+    console.error('Error refreshing active document:', err);
+  }
 }
 
 async function renderMarkdown(markdown) {
   await renderDocument(markdown);
-}
-
-async function renderDocument(content, targetElement = viewer, tab = getActiveTab(), updateToc = targetElement === viewer) {
-  if (!tab) return;
-
-  if (tab.documentType.kind === 'markdown') {
-    await renderMarkdownInto(content, targetElement, updateToc);
-    return;
-  }
-
-  renderTextInto(content, targetElement, tab.documentType);
-  if (updateToc) {
-    tocContent.innerHTML = '';
-    updateZoomSurfaceSize();
-  }
-}
-
-function renderTextInto(content, targetElement, documentType) {
-  const pre = document.createElement('pre');
-  const code = document.createElement('code');
-  pre.className = 'source-preview';
-
-  if (documentType.language && hljs.getLanguage(documentType.language)) {
-    code.className = `language-${documentType.language}`;
-    code.innerHTML = hljs.highlight(content, { language: documentType.language }).value;
-  } else {
-    code.textContent = content;
-  }
-
-  pre.appendChild(code);
-  targetElement.innerHTML = '';
-  targetElement.appendChild(pre);
 }
 
 function updateEditorHighlight() {
@@ -842,88 +923,6 @@ function syncEditorHighlightScroll() {
   editorHighlight.scrollLeft = editor.scrollLeft;
 }
 
-async function renderMarkdownInto(markdown, targetElement, updateToc = false) {
-  console.log('Rendering markdown');
-
-  if (typeof marked === 'undefined') {
-    targetElement.innerHTML = '<div class="error">Marked.js not loaded</div>';
-    return;
-  }
-  configureMarked();
-
-  // First pass: render markdown
-  const html = marked.parse(normalizeLatexDisplayMath(markdown));
-  targetElement.innerHTML = html;
-  await normalizeImageSources(targetElement);
-
-  // Second pass: render mermaid diagrams
-  if (typeof mermaid !== 'undefined') {
-    const mermaidBlocks = targetElement.querySelectorAll('code.language-mermaid');
-    for (let i = 0; i < mermaidBlocks.length; i++) {
-      const block = mermaidBlocks[i];
-      const code = block.textContent;
-      try {
-        const { svg } = await mermaid.render(`mermaid-${Date.now()}-${i}`, code);
-        const wrapper = document.createElement('div');
-        wrapper.className = 'mermaid-wrapper';
-        wrapper.innerHTML = svg;
-        block.parentElement.replaceWith(wrapper);
-      } catch (err) {
-        console.error('Mermaid rendering error:', err);
-      }
-    }
-  }
-
-  if (updateToc) {
-    // Generate Table of Contents
-    generateTableOfContents();
-    updateZoomSurfaceSize();
-  }
-}
-
-async function normalizeImageSources(targetElement) {
-  const activeTab = getActiveTab();
-  if (!activeTab) return;
-
-  const baseDir = path.dirname(activeTab.filePath);
-  const images = targetElement.querySelectorAll('img');
-
-  await Promise.all(Array.from(images).map(async img => {
-    const rawSrc = img.getAttribute('src');
-    if (!rawSrc || isExternalResource(rawSrc)) {
-      return;
-    }
-
-    const decodedSrc = safeDecodeUri(rawSrc);
-    const absolutePath = path.isAbsolute(decodedSrc)
-      ? decodedSrc
-      : path.resolve(baseDir, decodedSrc);
-
-    try {
-      const data = await filesystem.readBinaryFile(absolutePath);
-      const mimeTypes = {
-        '.gif': 'image/gif',
-        '.jpeg': 'image/jpeg',
-        '.jpg': 'image/jpeg',
-        '.png': 'image/png',
-        '.svg': 'image/svg+xml',
-        '.webp': 'image/webp'
-      };
-      const mimeType = mimeTypes[path.extname(absolutePath).toLowerCase()] || 'application/octet-stream';
-      img.src = URL.createObjectURL(new Blob([data], { type: mimeType }));
-    } catch (err) {
-      console.error('Unable to load local image:', absolutePath, err);
-    }
-  }));
-}
-
-function isExternalResource(src) {
-  if (path.isAbsolute(src)) {
-    return false;
-  }
-
-  return /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(src);
-}
 
 function safeDecodeUri(value) {
   try {
@@ -935,44 +934,50 @@ function safeDecodeUri(value) {
 
 // ==================== Link Handling ====================
 
+function showAppNotification(message) {
+  clearTimeout(notificationTimer);
+  appNotification.textContent = message;
+  appNotification.title = message;
+  appNotification.classList.remove('hidden');
+  notificationTimer = setTimeout(() => {
+    appNotification.classList.add('hidden');
+  }, 5000);
+}
+
+function scrollToDocumentAnchor(fragment, root = viewer) {
+  if (!fragment) return;
+
+  const anchorId = safeDecodeUri(fragment);
+  const target = Array.from(root.querySelectorAll('[id]')).find(element => element.id === anchorId);
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth' });
+  }
+}
+
 function setupLinkHandling() {
-  viewer.addEventListener('click', (e) => {
-    // Check if clicked element is a link
-    const link = e.target.closest('a');
-    if (!link) return;
+  setupPreviewLinkHandling({
+    roots: [viewer, compareViewer],
+    classifyLink,
+    getCurrentFile: () => currentFile,
+    isSupportedDocument,
+    loadFile,
+    openExternal: target => os.open(target),
+    path,
+    safeDecodeUri,
+    scrollToAnchor: scrollToDocumentAnchor,
+    notify: showAppNotification
+  });
+}
 
-    const href = link.getAttribute('href');
-    if (!href) return;
+function setupWebViewNavigationGuard() {
+  const appHistoryState = { simpleMarkdownViewer: true };
+  window.history.replaceState(appHistoryState, '', window.location.href);
+  window.history.pushState(appHistoryState, '', window.location.href);
 
-    // Handle .md files
-    if (href.endsWith('.md') || href.endsWith('.markdown')) {
-      e.preventDefault();
-
-      let targetPath;
-
-      // Handle relative paths
-      if (!path.isAbsolute(href)) {
-        const currentDir = path.dirname(currentFile);
-        targetPath = path.resolve(currentDir, href);
-      } else {
-        targetPath = href;
-      }
-
-      console.log('Loading linked file:', targetPath);
-      loadFile(targetPath);
-    }
-    // Let external links open normally
-    else if (href.startsWith('http://') || href.startsWith('https://')) {
-      e.preventDefault();
-      os.open(href);
-    }
-    // Handle anchor links (headings)
-    else if (href.startsWith('#')) {
-      e.preventDefault();
-      const target = document.querySelector(href);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth' });
-      }
+  window.addEventListener('popstate', () => {
+    window.history.pushState(appHistoryState, '', window.location.href);
+    if (!backBtn.disabled) {
+      navigateBack();
     }
   });
 }
@@ -1122,38 +1127,7 @@ function performSearch(query) {
 }
 
 function highlightSearchMatches(query) {
-  const walker = document.createTreeWalker(
-    viewer,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode: function(node) {
-        // Skip script and style elements
-        if (node.parentElement.tagName === 'SCRIPT' ||
-            node.parentElement.tagName === 'STYLE') {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    }
-  );
-
-  const nodesToReplace = [];
-  const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    if (regex.test(node.textContent)) {
-      nodesToReplace.push(node);
-    }
-  }
-
-  nodesToReplace.forEach(node => {
-    const span = document.createElement('span');
-    span.innerHTML = node.textContent.replace(regex, match =>
-      `<span class="search-highlight">${match}</span>`
-    );
-    node.parentNode.replaceChild(span, node);
-  });
+  highlightTextMatches(viewer, query, document);
 }
 
 function navigateSearch(direction) {
@@ -1184,11 +1158,8 @@ function clearSearch() {
   const highlights = viewer.querySelectorAll('.search-highlight');
   highlights.forEach(highlight => {
     const parent = highlight.parentElement;
-    if (parent && parent.tagName === 'SPAN') {
-      // Replace the wrapper span with its text content
-      const textNode = document.createTextNode(parent.textContent);
-      parent.parentNode.replaceChild(textNode, parent);
-    }
+    highlight.replaceWith(document.createTextNode(highlight.textContent));
+    if (parent) parent.normalize();
   });
 
   searchMatches = [];
@@ -1249,46 +1220,16 @@ exportBtn.addEventListener('click', async () => {
   await nativeWindow.print();
 });
 
-// ==================== File Watcher ====================
-
-async function setupFileWatcher(tab) {
-  try {
-    tab.watcher = await filesystem.createWatcher(path.dirname(tab.filePath));
-    console.log('File watcher set up for:', tab.filePath);
-  } catch (err) {
-    console.error('Error setting up file watcher:', err);
-  }
-}
-
-events.on('watchFile', async event => {
-  if (event.detail.action !== 'modified') return;
-
-  const changedPath = path.resolve(event.detail.dir, event.detail.filename);
-  const matchingTabs = openTabs.filter(tab =>
-    tab.watcher === event.detail.id &&
-    tab.filePath.toLowerCase() === changedPath.toLowerCase() &&
-    !tab.dirty
-  );
-
-  for (const tab of matchingTabs) {
-    try {
-      const content = await filesystem.readFile(tab.filePath);
-      tab.content = content;
-      tab.savedContent = content;
-      if (tab.id === activeTabId && viewMode === 'preview') {
-        editor.dataset.raw = content;
-        editor.value = content;
-        await renderDocument(content);
-      }
-    } catch (err) {
-      console.error('Error reloading file:', err);
-    }
-  }
-});
-
 // ==================== Keyboard Shortcuts ====================
 
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', async (e) => {
+  // F5 / Ctrl+R: Refresh only the active document, not the whole application.
+  if (isDocumentRefreshShortcut(e)) {
+    e.preventDefault();
+    refreshActiveDocument();
+    return;
+  }
+
   // Ctrl+O: Open file
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
@@ -1307,7 +1248,7 @@ document.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.key === 's') {
     e.preventDefault();
     if (currentFile && viewMode !== 'preview') {
-      saveActiveFile();
+      if (!await saveActiveFile()) return;
       console.log('File saved');
 
       // Show a brief save indicator
@@ -1324,9 +1265,9 @@ document.addEventListener('keydown', (e) => {
     if (!diagramLightbox.classList.contains('hidden')) {
       closeDiagramLightbox();
     } else if (isEditMode) {
-      saveActiveFile();
+      if (!await saveActiveFile()) return;
       setViewMode('preview');
-      renderDocument(editor.value);
+      await renderDocument(editor.value);
     } else if (searchPanel.style.display !== 'none') {
       searchClose.click();
     }
@@ -1345,7 +1286,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Ctrl+Left: Back
-  if (e.ctrlKey && e.key === 'ArrowLeft') {
+  if ((e.ctrlKey || e.altKey) && e.key === 'ArrowLeft') {
     e.preventDefault();
     if (!backBtn.disabled) {
       navigateBack();
@@ -1353,7 +1294,7 @@ document.addEventListener('keydown', (e) => {
   }
 
   // Ctrl+Right: Forward
-  if (e.ctrlKey && e.key === 'ArrowRight') {
+  if ((e.ctrlKey || e.altKey) && e.key === 'ArrowRight') {
     e.preventDefault();
     if (!forwardBtn.disabled) {
       navigateForward();
@@ -1378,11 +1319,7 @@ document.addEventListener('wheel', (e) => {
 // ==================== Drag and Drop ====================
 
 events.on('filesDropped', event => {
-  (event.detail || []).forEach(filePath => {
-    if (isSupportedDocument(filePath)) {
-      loadFile(filePath);
-    }
-  });
+  openFilesInOrder(event.detail || []);
 });
 
 console.log('Renderer loaded');

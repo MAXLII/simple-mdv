@@ -1,22 +1,27 @@
 {
   "name": "simple-markdown-viewer",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "A lightweight Markdown, text, and source code viewer built with Neutralinojs",
   "author": "Derek Bowes <db@bowesmail.com> (SubsKeepr Inc.)",
   "license": "MIT",
   "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "prestart": "npm run sync-version",
+    "prebuild:app": "npm run sync-version",
     "bundle": "node scripts/build-frontend.js",
     "start": "npm run bundle && neu run",
     "build:app": "npm run bundle && neu build --embed-resources",
     "build": "npm run build:app && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
-    "test": "node tests/markdown-math.test.js && node tests/document-support.test.js && node tests/workspace-support.test.js"
+    "test": "node scripts/sync-version.js --check && node tests/markdown-math.test.js && node tests/document-support.test.js && node tests/workspace-support.test.js && node tests/compare-support.test.js && node tests/link-support.test.js && node tests/refactor-integration.test.js && node tests/security-rendering.test.js"
   },
   "devDependencies": {
     "@neutralinojs/neu": "^11.7.2",
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "jsdom": "^26.1.0"
   },
   "dependencies": {
     "@neutralinojs/lib": "^6.9.0",
+    "dompurify": "^3.4.14",
     "highlight.js": "^11.12.0",
     "katex": "^0.17.0",
     "marked": "^18.0.9",

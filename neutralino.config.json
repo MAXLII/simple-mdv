@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
   "applicationId": "com.maxli.simplemarkdownviewer",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "defaultMode": "window",
   "port": 0,
   "documentRoot": "/resources/",
@@ -17,6 +17,7 @@
     "filesystem.readDirectory",
     "filesystem.readFile",
     "filesystem.removeWatcher",
+    "filesystem.removeFile",
     "filesystem.writeFile",
     "os.open",
     "os.showFolderDialog",

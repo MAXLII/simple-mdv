@@ -15,7 +15,7 @@ internal static class InstallerStub
     private const string AppName = "Simple Markdown Viewer";
     private const string AppId = "SimpleMarkdownViewer";
     private const string Publisher = "Derek Bowes";
-    private const string Version = "1.4.0";
+    private const string Version = BuildVersion.Value;
     private const string ExeName = "simple-markdown-viewer.exe";
     private const string MarkdownProgId = AppId + ".md";
     private static readonly byte[] Marker = Encoding.ASCII.GetBytes("SMVZIP01");

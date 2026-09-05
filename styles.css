@@ -36,6 +36,27 @@ body {
     padding: 6px 10px 0;
 }
 
+#appNotification {
+    position: fixed;
+    top: 64px;
+    left: 50%;
+    z-index: 1100;
+    max-width: min(720px, calc(100vw - 40px));
+    padding: 10px 16px;
+    overflow: hidden;
+    color: #ffffff;
+    background: #cf222e;
+    border-radius: 6px;
+    box-shadow: 0 6px 20px rgba(31, 35, 40, 0.2);
+    text-overflow: ellipsis;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+#appNotification.hidden {
+    display: none;
+}
+
 .file-tab {
     align-items: center;
     background: #f6f8fa;

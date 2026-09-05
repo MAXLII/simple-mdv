@@ -44,6 +44,22 @@ function isSupportedDocument(filePath) {
   return getDocumentType(filePath) !== null;
 }
 
+function isDocumentRefreshShortcut(event) {
+  if (!event || event.altKey) return false;
+
+  const key = String(event.key || '').toLowerCase();
+  return key === 'f5' || (!!(event.ctrlKey || event.metaKey) && key === 'r');
+}
+
+function applyRefreshedDocumentContent(openTabs, tabId, content) {
+  const tab = openTabs.find(item => item.id === tabId);
+  if (!tab || tab.dirty) return false;
+
+  tab.content = content;
+  tab.savedContent = content;
+  return true;
+}
+
 function splitCommandLine(commandLine) {
   if (Array.isArray(commandLine)) {
     return commandLine.slice();
@@ -65,9 +81,11 @@ function getSupportedPathsFromArguments(commandLine) {
 }
 
 module.exports = {
+  applyRefreshedDocumentContent,
   DOCUMENT_TYPES,
   getDocumentType,
   getSupportedPathsFromArguments,
+  isDocumentRefreshShortcut,
   isSupportedDocument,
   splitCommandLine
 };

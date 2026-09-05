@@ -3,16 +3,23 @@ param()
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
+$packageInfo = Get-Content -LiteralPath (Join-Path $root 'package.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$version = [string] $packageInfo.version
+if ($version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
+  throw "Invalid package version: $version"
+}
 $distDir = Join-Path $root 'dist'
 $runtimeSource = Join-Path $distDir 'simple-markdown-viewer-runtime\simple-markdown-viewer-runtime-win_x64.exe'
 $payloadDir = Join-Path $distDir 'installer-payload'
 $workDir = Join-Path $distDir 'installer-work-neutralino'
 $payloadZip = Join-Path $workDir 'app.zip'
-$setupExe = Join-Path $distDir 'SimpleMarkdownViewerSetup-1.4.0.exe'
+$setupExe = Join-Path $distDir "SimpleMarkdownViewerSetup-$version.exe"
+$stagedSetupExe = Join-Path $workDir 'setup-package.exe'
 $launcherSource = Join-Path $root 'scripts\launcher\SingleInstanceLauncher.cs'
 $stubSource = Join-Path $root 'scripts\installer\InstallerStub.cs'
 $launcherExe = Join-Path $payloadDir 'simple-markdown-viewer.exe'
 $stubExe = Join-Path $workDir 'installer-stub.exe'
+$versionSource = Join-Path $workDir 'BuildVersion.cs'
 $iconPath = Join-Path $root 'icon.ico'
 
 function Remove-PathInsideRoot {
@@ -43,6 +50,9 @@ Remove-PathInsideRoot $workDir
 New-Item -ItemType Directory -Path $payloadDir -Force | Out-Null
 New-Item -ItemType Directory -Path $workDir -Force | Out-Null
 
+$versionCode = "internal static class BuildVersion { internal const string Value = `"$version`"; }"
+Set-Content -LiteralPath $versionSource -Value $versionCode -Encoding UTF8
+
 Copy-Item -LiteralPath $runtimeSource -Destination (Join-Path $payloadDir 'simple-markdown-viewer-runtime.exe')
 Copy-Item -LiteralPath $iconPath -Destination (Join-Path $payloadDir 'icon.ico')
 
@@ -53,7 +63,7 @@ if ($LASTEXITCODE -ne 0) {
 
 Compress-Archive -Path (Join-Path $payloadDir '*') -DestinationPath $payloadZip -CompressionLevel Optimal -Force
 
-& $cscPath /nologo /target:winexe "/win32icon:$iconPath" "/out:$stubExe" /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:System.Windows.Forms.dll $stubSource
+& $cscPath /nologo /target:winexe "/win32icon:$iconPath" "/out:$stubExe" /reference:System.Drawing.dll /reference:System.IO.Compression.dll /reference:System.IO.Compression.FileSystem.dll /reference:System.Windows.Forms.dll $stubSource $versionSource
 if ($LASTEXITCODE -ne 0) {
   throw "Installer stub compilation failed with exit code $LASTEXITCODE."
 }
@@ -61,7 +71,7 @@ if ($LASTEXITCODE -ne 0) {
 $marker = [System.Text.Encoding]::ASCII.GetBytes('SMVZIP01')
 $zipLength = (Get-Item -LiteralPath $payloadZip).Length
 $lengthBytes = [System.BitConverter]::GetBytes([Int64]$zipLength)
-$output = [System.IO.File]::Create($setupExe)
+$output = [System.IO.File]::Create($stagedSetupExe)
 try {
   foreach ($path in @($stubExe, $payloadZip)) {
     $input = [System.IO.File]::OpenRead($path)
@@ -76,5 +86,7 @@ try {
 } finally {
   $output.Dispose()
 }
+
+Move-Item -LiteralPath $stagedSetupExe -Destination $setupExe -Force
 
 Get-Item -LiteralPath $setupExe

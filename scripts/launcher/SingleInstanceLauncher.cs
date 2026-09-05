@@ -31,17 +31,15 @@ internal static class SingleInstanceLauncher
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "SimpleMarkdownViewer");
             }
-            string queuePath = Path.Combine(queueDirectory, "open-requests.txt");
             Directory.CreateDirectory(queueDirectory);
 
             if (!ownsMutex)
             {
-                AppendOpenRequests(queuePath, args);
+                AppendOpenRequests(queueDirectory, args);
                 FocusExistingWindow();
                 return 0;
             }
 
-            File.WriteAllText(queuePath, string.Empty, new UTF8Encoding(false));
             string runtimePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, RuntimeName);
             if (!File.Exists(runtimePath))
             {
@@ -52,7 +50,7 @@ internal static class SingleInstanceLauncher
             startInfo.FileName = runtimePath;
             startInfo.WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory;
             startInfo.UseShellExecute = false;
-            startInfo.Arguments = QuoteArgument("--open-queue=" + queuePath) + BuildArguments(args);
+            startInfo.Arguments = QuoteArgument("--open-queue-dir=" + queueDirectory) + BuildArguments(args);
 
             using (Process runtime = Process.Start(startInfo))
             {
@@ -62,7 +60,7 @@ internal static class SingleInstanceLauncher
         }
     }
 
-    private static void AppendOpenRequests(string queuePath, string[] args)
+    private static void AppendOpenRequests(string queueDirectory, string[] args)
     {
         if (args.Length == 0)
         {
@@ -75,7 +73,11 @@ internal static class SingleInstanceLauncher
             string resolved = Path.GetFullPath(arg);
             requests.AppendLine(resolved);
         }
-        File.AppendAllText(queuePath, requests.ToString(), new UTF8Encoding(false));
+        string prefix = DateTime.UtcNow.Ticks.ToString("D19") + "-" + Process.GetCurrentProcess().Id;
+        string temporaryPath = Path.Combine(queueDirectory, prefix + "-" + Guid.NewGuid().ToString("N") + ".tmp");
+        string requestPath = Path.ChangeExtension(temporaryPath, ".request");
+        File.WriteAllText(temporaryPath, requests.ToString(), new UTF8Encoding(false));
+        File.Move(temporaryPath, requestPath);
     }
 
     private static string BuildArguments(string[] args)
