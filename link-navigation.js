@@ -1,5 +1,7 @@
+const { canOpenWithDefaultApp } = require('./link-support');
+
 function setupPreviewLinkHandling({ roots, classifyLink, getCurrentFile, isSupportedDocument,
-  loadFile, openExternal, path, safeDecodeUri, scrollToAnchor, notify }) {
+  loadFile, openExternal, getFileStats, path, safeDecodeUri, scrollToAnchor, notify }) {
   const handleClick = async event => {
     const root = event.currentTarget;
     const link = event.target.closest('a');
@@ -29,12 +31,36 @@ function setupPreviewLinkHandling({ roots, classifyLink, getCurrentFile, isSuppo
       return;
     }
 
-    const decodedTarget = safeDecodeUri(target.target);
+    let decodedTarget;
+    try {
+      // The query and fragment are already separated; decode filename characters too.
+      decodedTarget = decodeURIComponent(target.target);
+    } catch (error) {
+      decodedTarget = safeDecodeUri(target.target);
+    }
     const targetPath = path.isAbsolute(decodedTarget)
       ? decodedTarget
       : path.resolve(path.dirname(currentFile), decodedTarget);
     if (!isSupportedDocument(targetPath)) {
-      notify(`Unsupported document type: ${path.basename(targetPath)}`);
+      if (!canOpenWithDefaultApp(targetPath)) {
+        notify(`Unsupported document type: ${path.basename(targetPath)}`);
+        return;
+      }
+      try {
+        const stats = await getFileStats(targetPath);
+        if (!stats.isFile) {
+          notify(`不是可打开的文件：${path.basename(targetPath)}`);
+          return;
+        }
+      } catch (error) {
+        notify(`无法访问文件：${path.basename(targetPath)}（${error.message || error.code || '文件不存在或没有访问权限'}）`);
+        return;
+      }
+      try {
+        await openExternal(targetPath);
+      } catch (error) {
+        notify(`无法使用默认软件打开：${path.basename(targetPath)}（${error.message || error.code || '请检查系统默认应用设置'}）`);
+      }
       return;
     }
 

@@ -952,6 +952,8 @@ function scrollToDocumentAnchor(fragment, root = viewer) {
   const target = Array.from(root.querySelectorAll('[id]')).find(element => element.id === anchorId);
   if (target) {
     target.scrollIntoView({ behavior: 'smooth' });
+  } else {
+    showAppNotification(`未找到文档位置：${anchorId}`);
   }
 }
 
@@ -963,6 +965,7 @@ function setupLinkHandling() {
     isSupportedDocument,
     loadFile,
     openExternal: target => os.open(target),
+    getFileStats: target => filesystem.getStats(target),
     path,
     safeDecodeUri,
     scrollToAnchor: scrollToDocumentAnchor,

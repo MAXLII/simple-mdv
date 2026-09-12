@@ -108,6 +108,51 @@ async function run() {
   assert.strictEqual(prevented, true, 'compare preview links must be intercepted');
   assert.deepStrictEqual(linkedFiles, ['C:\\docs\\next.md']);
 
+  const externalFiles = [];
+  const notifications = [];
+  const inspected = [];
+  setupPreviewLinkHandling({
+    roots, classifyLink,
+    getCurrentFile: () => 'Z:\\Book\\索引.md',
+    isSupportedDocument: require('../document-support').isSupportedDocument,
+    loadFile: async file => { linkedFiles.push(file); return true; },
+    openExternal: async file => {
+      if (file.endsWith('no-app.pdf')) throw { code: 'NO_ASSOCIATION' };
+      externalFiles.push(file);
+    },
+    getFileStats: async file => {
+      inspected.push(file);
+      if (file.endsWith('missing.pdf')) throw { code: 'NE_FS_NOPATHE' };
+      return { isFile: !file.endsWith('folder.pdf') };
+    },
+    path: require('node:path').win32,
+    safeDecodeUri: decodeURI, scrollToAnchor() {},
+    notify: message => notifications.push(message)
+  });
+  async function click(href, root = roots[0]) {
+    await root.handler({ currentTarget: root, preventDefault() {},
+      target: { closest: () => ({ getAttribute: () => href }) } });
+  }
+  await click('./并网%20变流器%23笔记.pdf', roots[1]);
+  await click('C:/资料/报告.DOCX');
+  await click('\\\\nas\\books\\参考.pdf');
+  await click('https://example.com/book.pdf');
+  assert.deepStrictEqual(externalFiles, [
+    'Z:\\Book\\并网 变流器#笔记.pdf', 'C:/资料/报告.DOCX',
+    '\\\\nas\\books\\参考.pdf', 'https://example.com/book.pdf'
+  ]);
+  await click('notes.md#section');
+  await click('example.ps1');
+  assert.deepStrictEqual(linkedFiles.slice(-2), ['Z:\\Book\\notes.md', 'Z:\\Book\\example.ps1']);
+  for (const href of ['missing.pdf', 'folder.pdf', 'no-app.pdf', 'run.exe', 'shortcut.lnk', 'javascript:alert(1)']) {
+    await click(href);
+  }
+  assert.equal(externalFiles.length, 4, 'failed files and executable links must not launch');
+  assert.equal(notifications.length, 6);
+  assert.match(notifications[0], /NE_FS_NOPATHE/);
+  assert.match(notifications[2], /NO_ASSOCIATION/);
+  assert.equal(inspected.length, 6, 'web links and supported documents bypass external file checks');
+
   console.log('refactor integration tests passed');
 }
 

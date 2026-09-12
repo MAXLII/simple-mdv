@@ -1,6 +1,20 @@
 const EXTERNAL_LINK_PATTERN = /^(?:https?|mailto):/i;
 const PROTOCOL_PATTERN = /^[a-z][a-z0-9+.-]*:/i;
 const WINDOWS_ABSOLUTE_PATH_PATTERN = /^[a-z]:[\\/]/i;
+// Data formats that can be delegated to a desktop application. Executables,
+// shortcuts and scripts must not become runnable through a document link.
+const DEFAULT_APP_EXTENSIONS = new Set([
+  'pdf', 'epub', 'djvu', 'doc', 'docx', 'odt', 'rtf', 'xls', 'xlsx', 'ods',
+  'ppt', 'pptx', 'odp', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg',
+  'tif', 'tiff', 'ico', 'mp3', 'wav', 'flac', 'ogg', 'm4a', 'mp4', 'mkv',
+  'avi', 'mov', 'webm', 'zip', '7z', 'rar'
+]);
+
+function canOpenWithDefaultApp(filePath) {
+  const name = String(filePath).split(/[\\/]/).pop();
+  const dot = name.lastIndexOf('.');
+  return dot > 0 && DEFAULT_APP_EXTENSIONS.has(name.slice(dot + 1).toLowerCase());
+}
 
 function classifyLink(href) {
   const value = String(href || '').trim();
@@ -30,5 +44,6 @@ function classifyLink(href) {
 }
 
 module.exports = {
+  canOpenWithDefaultApp,
   classifyLink
 };

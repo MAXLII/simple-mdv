@@ -13,6 +13,7 @@
     "app.exit",
     "filesystem.createWatcher",
     "filesystem.getPathParts",
+    "filesystem.getStats",
     "filesystem.readBinaryFile",
     "filesystem.readDirectory",
     "filesystem.readFile",
