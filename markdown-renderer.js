@@ -2,10 +2,21 @@ const createDOMPurify = require('dompurify');
 const { createRenderCoordinator } = require('./async-lifecycle');
 
 const MAX_MERMAID_SOURCE_LENGTH = 100000;
+const { compatibleFlowchartSource } = require('./mermaid-support');
+const { renderMathElements } = require('./math-rendering');
 
 function createMarkdownRenderer({ window, marked, mermaid, hljs, filesystem, path,
-  normalizeLatexDisplayMath, configureMarked, isRenderAllowed, onRendered }) {
+  normalizeLatexDisplayMath, configureMarked, isRenderAllowed, onRendered, loadLocalImage }) {
   const purifier = createDOMPurify(window);
+  if (loadLocalImage) {
+    purifier.addHook('uponSanitizeAttribute', (node, attribute) => {
+      // Preserve file-image references as inert metadata, never as WebView file URLs.
+      if (node.tagName === 'IMG' && attribute.attrName === 'src' && /^file:\/\//i.test(attribute.attrValue)) {
+        node.setAttribute('data-mdv-file-src', attribute.attrValue);
+        attribute.keepAttr = false;
+      }
+    });
+  }
   const coordinator = createRenderCoordinator();
   const targetResources = new Map();
   const targetOwners = new Map();
@@ -86,10 +97,19 @@ function createMarkdownRenderer({ window, marked, mermaid, hljs, filesystem, pat
       FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
       FORBID_ATTR: ['srcdoc', 'style']
     });
+    renderMathElements(draft);
     await normalizeImageSources(draft, tab, urls);
     if (!isCurrent(token, tab)) {
       revokeUrls(urls);
       return false;
+    }
+
+    for (const code of draft.querySelectorAll('pre > code')) {
+      const language = [...code.classList].find(name => name.startsWith('language-'))?.slice(9);
+      if (language && language !== 'mermaid' && hljs.getLanguage(language)) {
+        code.innerHTML = hljs.highlight(code.textContent, { language }).value;
+        code.classList.add('hljs');
+      }
     }
 
     const mermaidBlocks = Array.from(draft.querySelectorAll('code.language-mermaid'));
@@ -100,7 +120,15 @@ function createMarkdownRenderer({ window, marked, mermaid, hljs, filesystem, pat
         continue;
       }
       try {
-        const { svg } = await mermaid.render(`mermaid-${++diagramSequence}`, source);
+        let result;
+        try {
+          result = await mermaid.render(`mermaid-${++diagramSequence}`, source);
+        } catch (error) {
+          const compatible = compatibleFlowchartSource(source);
+          if (compatible === source || !isCurrent(token, tab)) throw error;
+          result = await mermaid.render(`mermaid-${++diagramSequence}`, compatible);
+        }
+        const { svg } = result;
         if (!isCurrent(token, tab)) {
           revokeUrls(urls);
           return false;
@@ -112,9 +140,24 @@ function createMarkdownRenderer({ window, marked, mermaid, hljs, filesystem, pat
           FORBID_TAGS: ['script', 'foreignObject'],
           FORBID_ATTR: ['style']
         });
+        // Mermaid puts fill:none in inline CSS on sequence message paths.
+        // Sanitization removes that CSS; restore only this fixed presentation
+        // attribute so self-call curves remain open, without allowing raw styles.
+        for (const message of wrapper.querySelectorAll('path.messageLine0, path.messageLine1')) {
+          message.setAttribute('fill', 'none');
+        }
         block.parentElement.replaceWith(wrapper);
       } catch (error) {
         console.error('Mermaid rendering error:', error);
+        const details = window.document.createElement('details');
+        details.className = 'mermaid-error';
+        const summary = window.document.createElement('summary');
+        summary.textContent = '图表无法解析，点击查看原因和源码';
+        const reason = window.document.createElement('pre');
+        reason.textContent = String(error.message || error).slice(0, 2000);
+        const original = block.parentElement;
+        original.replaceWith(details);
+        details.append(summary, reason, original);
       }
     }
 
@@ -128,11 +171,29 @@ function createMarkdownRenderer({ window, marked, mermaid, hljs, filesystem, pat
   }
 
   async function normalizeImageSources(targetElement, tab, urls) {
-    const baseDir = path.dirname(tab.filePath);
+    const baseDir = loadLocalImage ? null : path.dirname(tab.filePath);
     const images = Array.from(targetElement.querySelectorAll('img'));
     await Promise.all(images.map(async image => {
-      const rawSrc = image.getAttribute('src');
-      if (!rawSrc || isExternalResource(rawSrc)) return;
+      const rawSrc = (loadLocalImage && image.getAttribute('data-mdv-file-src')) || image.getAttribute('src');
+      image.removeAttribute('data-mdv-file-src');
+      if (loadLocalImage) image.removeAttribute('srcset');
+      if (!rawSrc) return;
+      if (loadLocalImage) {
+        // The mobile adapter resolves document URIs; never apply desktop path rules.
+        if (/^(?:https?:|data:image\/|blob:)/i.test(rawSrc)) return;
+        image.removeAttribute('src');
+        image.removeAttribute('srcset');
+        try {
+          const url = await loadLocalImage(tab, rawSrc);
+          urls.add(url);
+          image.src = url;
+        } catch (error) {
+          image.alt = `${image.alt || rawSrc}（${error.message}）`;
+          image.title = error.message;
+        }
+        return;
+      }
+      if (isExternalResource(rawSrc)) return;
 
       const decodedSrc = safeDecodeUri(rawSrc);
       const absolutePath = path.isAbsolute(decodedSrc)

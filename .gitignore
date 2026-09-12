@@ -33,3 +33,11 @@ cache/
 /CLAUDE.md
 /test.md
 /tests/.runtime/
+
+# Android local tools, signing material and generated output
+android/.gradle/
+android/.kotlin/
+android/**/build/
+android/local.properties
+android/signing/
+android/app/src/main/assets/

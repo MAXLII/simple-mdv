@@ -1,0 +1,12 @@
+const fs = require('fs');
+const path = require('path');
+const destination = path.resolve(__dirname, '../cache/android-test-fixtures');
+fs.mkdirSync(path.join(destination, '子目录'), { recursive: true });
+fs.mkdirSync(path.join(destination, '图片'), { recursive: true });
+fs.writeFileSync(path.join(destination, '图片/示意 图.svg'), '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="150"><rect width="600" height="150" rx="16" fill="#e9f1ec"/><path d="M40 75h180m0 0-20-20m20 20-20 20M360 75h180" stroke="#216653" stroke-width="4" fill="none"/><circle cx="300" cy="75" r="45" fill="#216653"/><text x="300" y="83" text-anchor="middle" font-size="24" fill="white">MD</text></svg>');
+fs.writeFileSync(path.join(destination, '阅读验收.md'), `# 平板阅读验收\n\n这是一份专用测试文档，不包含个人资料。\n\n## 图片与导航\n\n![本地图片](图片/示意%20图.svg)\n\n[打开子文档](子目录/第二页.md#返回链接) · [跳到公式](#公式与流程图)\n\n## 公式与流程图\n\n行内公式 $E=mc^2$。\n\n$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$\n\n\`\`\`mermaid\nflowchart LR\n A[选择文件] --> B[离线阅读]\n B --> C[编辑保存]\n\`\`\`\n\n## 源码\n\n\`\`\`cpp\nint main() {\n    const double value = 3.14;\n    return 0;\n}\n\`\`\`\n\n## 宽表格\n\n| 测试项目 | 预期结果 | 第一组详细说明 | 第二组详细说明 | 第三组详细说明 |\n|---|---|---|---|---|\n| 中文路径 | 正常读取 | 横向滚动而不挤压正文 | 平板布局适配 | 文件授权独立验证 |\n\n## 搜索验证\n\n搜索标记：苹果。第二处苹果。第三处苹果。\n\n## 异常资源\n\n![缺失图片](图片/不存在.png)\n\n[越界链接](../private.md)\n\n<script>window.UNSAFE_SCRIPT_EXECUTED=true</script>\n<img src="missing.png" onerror="window.UNSAFE_SCRIPT_EXECUTED=true">\n\n[非法协议](javascript:alert(1))\n`);
+fs.writeFileSync(path.join(destination, '子目录/第二页.md'), '# 第二页\n\n## 返回链接\n\n[返回首页](../阅读验收.md)\n\n![上级目录图片](../图片/示意%20图.svg)\n');
+fs.writeFileSync(path.join(destination, '示例.cpp'), '#include <stdio.h>\nint main(void) { return 0; }\n');
+fs.writeFileSync(path.join(destination, '大文档.md'), '# 大文档性能验证\n\n' + Array.from({ length: 1200 }, (_, i) => `## 第 ${i + 1} 节\n\n这是第 ${i + 1} 段用于验证滚动与搜索的测试文本。 **离线阅读** 与 \\代码保存\\。\n\n`).join(''));
+fs.writeFileSync(path.join(destination, '复杂流程图.md'), '# 多流程图验证\n\n' + Array.from({length: 8}, (_, i) => '```mermaid\nflowchart TD\n' + Array.from({length: 30}, (_, j) => `N${j}[步骤 ${j}] --> N${j+1}[步骤 ${j+1}]`).join('\n') + '\n```\n').join('\n'));
+console.log(destination);

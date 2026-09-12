@@ -1,12 +1,13 @@
 // renderer.js
 
-import { events, filesystem, init as neutralinoInit, os, window as nativeWindow } from '@neutralinojs/lib';
+import { events, filesystem, initializeDesktop, os, nativeWindow } from './platform/desktop';
 import hljs from 'highlight.js/lib/core';
 import cLanguage from 'highlight.js/lib/languages/c';
 import cppLanguage from 'highlight.js/lib/languages/cpp';
 import javascriptLanguage from 'highlight.js/lib/languages/javascript';
 import jsonLanguage from 'highlight.js/lib/languages/json';
 import markedKatex from 'marked-katex-extension';
+import { createMathExtension } from './math-rendering';
 import mermaid from 'mermaid';
 import { marked } from 'marked';
 import { createOrderedQueue } from './async-lifecycle';
@@ -34,7 +35,7 @@ import {
   sortWorkspaceEntries
 } from './workspace-support';
 
-neutralinoInit();
+initializeDesktop();
 hljs.registerLanguage('c', cLanguage);
 hljs.registerLanguage('cpp', cppLanguage);
 hljs.registerLanguage('javascript', javascriptLanguage);
@@ -128,10 +129,7 @@ function configureMarked() {
     return;
   }
 
-  marked.use(markedKatex({
-    throwOnError: false,
-    nonStandard: true
-  }));
+  marked.use(createMathExtension(markedKatex));
 
   marked.setOptions({
     gfm: true,
@@ -462,6 +460,9 @@ window.addEventListener('load', () => {
   if (typeof mermaid !== 'undefined') {
     mermaid.initialize({
       startOnLoad: false,
+      suppressErrorRendering: true,
+      htmlLabels: false,
+      flowchart: { htmlLabels: false },
       theme: 'default',
       securityLevel: 'strict'
     });
@@ -506,7 +507,7 @@ async function initializeNativeOpenHandling() {
       await consumeOpenRequestDirectory(queueDirectory, {
         readDirectory: directory => filesystem.readDirectory(directory, { recursive: false }),
         readFile: requestPath => filesystem.readFile(requestPath),
-        removeFile: requestPath => filesystem.removeFile(requestPath),
+        removeFile: requestPath => filesystem.remove(requestPath),
         resolve: (...parts) => path.resolve(...parts)
       }, openFilesInOrder);
     } catch (err) {

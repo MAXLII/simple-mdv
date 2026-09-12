@@ -5,6 +5,9 @@
   "author": "Derek Bowes <db@bowesmail.com> (SubsKeepr Inc.)",
   "license": "MIT",
   "scripts": {
+    "bundle:android": "node scripts/build-android-frontend.js",
+    "build:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-android.ps1",
+    "test:android": "node scripts/build-android-frontend.js && node tests/android-platform.test.js && node tests/android-ui.test.js && node tests/android-images.test.js && node tests/mermaid-support.test.js && node tests/math-layout.test.js",
     "sync-version": "node scripts/sync-version.js",
     "prestart": "npm run sync-version",
     "prebuild:app": "npm run sync-version",
@@ -12,7 +15,7 @@
     "start": "npm run bundle && neu run",
     "build:app": "npm run bundle && neu build --embed-resources",
     "build": "npm run build:app && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-installer.ps1",
-    "test": "node scripts/sync-version.js --check && node tests/markdown-math.test.js && node tests/document-support.test.js && node tests/workspace-support.test.js && node tests/compare-support.test.js && node tests/link-support.test.js && node tests/refactor-integration.test.js && node tests/security-rendering.test.js"
+    "test": "node scripts/sync-version.js --check && node tests/markdown-math.test.js && node tests/document-support.test.js && node tests/workspace-support.test.js && node tests/compare-support.test.js && node tests/link-support.test.js && node tests/refactor-integration.test.js && node tests/security-rendering.test.js && node tests/math-layout.test.js"
   },
   "devDependencies": {
     "@neutralinojs/neu": "^11.7.2",

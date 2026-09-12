@@ -49,6 +49,13 @@ This repository is based on the upstream project [KrunchMuffin/simple-markdown-v
 
 ## Installation
 
+### Android tablet edition
+
+The Android edition provides a Simplified Chinese tablet interface with offline
+reading, folder access, Markdown rendering, editing, and recovery drafts. See
+[Android build and usage instructions](docs/android.md) and
+[device validation results](docs/android-validation.md).
+
 ### Download Pre-built Binary
 Download the latest release from the [Releases](https://github.com/MAXLII/simple-mdv/releases) page.
 

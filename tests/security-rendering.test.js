@@ -26,7 +26,10 @@ async function run() {
     marked,
     mermaid: {
       render: async () => ({
-        svg: '<svg onload="alert(1)"><script>alert(1)</script><foreignObject>bad</foreignObject><text>diagram</text></svg>'
+        svg: '<svg onload="alert(1)"><script>alert(1)</script><foreignObject>bad</foreignObject><text>diagram</text>' +
+          '<path class="messageLine0" style="fill:none;stroke:red" d="M0 0 C40 0 40 30 0 30"/>' +
+          '<path class="messageLine1" style="fill:none" d="M0 40 C40 40 40 70 0 70"/>' +
+          '<defs><marker id="arrow"><path fill="#333" d="M0 0 L10 5 L0 10 Z"/></marker></defs></svg>'
       })
     },
     hljs: { getLanguage: () => false },
@@ -48,6 +51,10 @@ async function run() {
   assert.doesNotMatch(html, /<script|onerror|onmouseover|onload|javascript:|foreignObject/i);
   assert.match(html, /safe text/);
   assert.match(html, /diagram/);
+  assert.strictEqual(preview.querySelector('path.messageLine0').getAttribute('fill'), 'none');
+  assert.strictEqual(preview.querySelector('path.messageLine1').getAttribute('fill'), 'none');
+  assert.strictEqual(preview.querySelector('marker path').getAttribute('fill'), '#333', 'arrowheads must remain filled');
+  assert.strictEqual(preview.querySelector('[style]'), null, 'raw inline styles must remain forbidden');
 
   preview.innerHTML = '<p>&lt;img src=x onerror=alert(1)&gt; value value</p>';
   const matches = highlightTextMatches(preview, '<img src=x onerror=alert(1)>', dom.window.document);

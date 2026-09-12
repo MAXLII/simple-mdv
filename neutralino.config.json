@@ -17,7 +17,7 @@
     "filesystem.readDirectory",
     "filesystem.readFile",
     "filesystem.removeWatcher",
-    "filesystem.removeFile",
+    "filesystem.remove",
     "filesystem.writeFile",
     "os.open",
     "os.showFolderDialog",

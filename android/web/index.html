@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>简阅 Markdown</title>
+  <link rel="stylesheet" href="katex.css">
+  <link rel="stylesheet" href="highlight.css">
+  <link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+  <header class="topbar">
+    <button id="menu" aria-label="展开文件目录" title="文件目录">☰</button>
+    <div class="brand"><span class="brand-icon">M<span>↓</span></span><div><strong>简阅</strong><small>MARKDOWN</small></div></div>
+    <div class="header-space"></div>
+    <button id="open-file">打开文件</button><button id="open-folder" class="primary">打开文件夹</button>
+    <button id="all-files">全部文件访问</button><button id="theme" aria-label="切换深浅色主题">◐</button>
+  </header>
+  <nav id="tabs" aria-label="文档标签"></nav>
+  <div class="workbench">
+    <aside id="sidebar">
+      <div class="sidebar-head"><strong id="root-name">我的文档</strong><button id="sidebar-close" aria-label="收起侧栏">×</button></div>
+      <div class="side-switch"><button id="show-files" class="selected">文件</button><button id="show-toc">大纲</button><button id="show-recent">最近</button></div>
+      <div id="tree"><p class="muted">打开文件夹，浏览你的本地文档。</p></div><div id="toc" hidden></div><div id="recent" hidden></div>
+      <div class="sidebar-footer"><span class="status-dot"></span>本地优先 · 离线可读</div>
+    </aside>
+    <div id="scrim" hidden></div>
+    <main>
+      <section id="welcome">
+        <div class="eyebrow">为大屏阅读而设计</div><h1>让文字，<br>安静地展开。</h1>
+        <p>阅读笔记、公式与代码。<br>从一份文档开始，回到内容本身。</p>
+        <button id="welcome-open" class="primary">选择一份文档 <span>↗</span></button>
+        <div class="welcome-cards"><div><b>01</b><strong>本地文档</strong><span>授权文件夹，连接知识</span></div><div><b>02</b><strong>清晰呈现</strong><span>公式、流程图与代码</span></div><div><b>03</b><strong>随手记录</strong><span>轻量编辑，草稿恢复</span></div></div>
+      </section>
+      <section id="document" hidden>
+        <div class="document-toolbar"><div id="document-name"></div><span id="dirty-state"></span><div class="header-space"></div>
+          <button id="font-down" aria-label="缩小字号">A−</button><button id="font-up" aria-label="放大字号">A+</button>
+          <button id="find">搜索</button><button id="edit">编辑</button><button id="save" class="primary">保存</button><button id="save-as">另存</button>
+        </div>
+        <div id="search-panel" hidden><input id="search-input" aria-label="搜索文档" placeholder="查找文档内容"><span id="search-count"></span><button id="search-prev" aria-label="上一处">↑</button><button id="search-next" aria-label="下一处">↓</button><button id="search-close" aria-label="关闭搜索">×</button></div>
+        <div id="surfaces"><textarea id="editor" aria-label="文档编辑器" spellcheck="false" hidden></textarea><article id="viewer" class="markdown-body"></article></div>
+      </section>
+      <footer id="status">准备就绪</footer>
+    </main>
+  </div>
+  <dialog id="choice"><h2 id="choice-title"></h2><p id="choice-message"></p><div id="choice-buttons"></div></dialog>
+  <dialog id="diagram"><button id="diagram-close">关闭预览</button><div id="diagram-content"></div></dialog>
+  <div id="toast" role="status" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
