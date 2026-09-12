@@ -1,6 +1,6 @@
 {
   "name": "simple-markdown-viewer",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "A lightweight Markdown, text, and source code viewer built with Neutralinojs",
   "author": "Derek Bowes <db@bowesmail.com> (SubsKeepr Inc.)",
   "license": "MIT",
