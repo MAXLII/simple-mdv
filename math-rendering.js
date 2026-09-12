@@ -4,6 +4,24 @@ const katex = require('katex');
 // has been sanitized. User HTML never gets permission to keep inline styles.
 function createMathExtension(markedKatex) {
   const extension = markedKatex({ nonStandard: true });
+  // Recognize LaTeX inline delimiters before Markdown consumes their escapes.
+  // A tokenizer keeps code spans, fenced code and HTML attributes untouched.
+  extension.extensions.push({
+    name: 'latexInlineMath',
+    level: 'inline',
+    start: source => source.indexOf('\\('),
+    tokenizer(source) {
+      const match = /^\\\(((?:\\[\s\S]|[^\\])+?)\\\)/.exec(source);
+      if (match) {
+        return {
+          type: 'latexInlineMath',
+          raw: match[0],
+          text: match[1].trim(),
+          displayMode: false
+        };
+      }
+    }
+  });
   for (const rule of extension.extensions) {
     rule.renderer = token => {
       const source = encodeURIComponent(token.text).replace(/'/g, '%27');
