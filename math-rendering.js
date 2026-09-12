@@ -1,9 +1,11 @@
 const katex = require('katex');
+const { tokenizeMathTable } = require('./markdown-table-math');
 
 // Parse math with Marked, but defer its generated layout until Markdown HTML
 // has been sanitized. User HTML never gets permission to keep inline styles.
 function createMathExtension(markedKatex) {
   const extension = markedKatex({ nonStandard: true });
+  extension.tokenizer = { table: tokenizeMathTable };
   // Recognize LaTeX inline delimiters before Markdown consumes their escapes.
   // A tokenizer keeps code spans, fenced code and HTML attributes untouched.
   extension.extensions.push({

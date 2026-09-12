@@ -61,6 +61,40 @@ const { normalizeLatexDisplayMath } = require('../markdown-math');
 
   await renderer.renderMarkdownInto(String.raw`\(\href{javascript:alert(1)}{click}\)`, target, tab);
   assert.equal(target.querySelector('a[href^="javascript:"],[data-mdv-math]'), null);
+
+  const mathTable = String.raw`| dq 扰动频率 | 对应上边带 | \(|F_+|\) | 相位 |
+|---|---|---:|---:|
+| 0 Hz | 50 Hz | 0.99984 | -0.027° |
+| 120 Hz | 170 Hz | 0.26690 | -65.62° |
+| 600 Hz | 650 Hz | 0.05506 | -84.11° |`;
+  await renderer.renderMarkdownInto(mathTable + '\n\n后续段落。', target, tab);
+  assert.equal(target.querySelectorAll('table').length, 1);
+  assert.equal(target.querySelectorAll('th').length, 4);
+  assert.equal(target.querySelectorAll('tbody tr').length, 3);
+  assert.equal(target.querySelectorAll('td').length, 12);
+  assert.equal(target.querySelector('th annotation').textContent, '|F_+|');
+  assert.equal(target.querySelector('tbody tr:last-child td:last-child').textContent, '-84.11°');
+  assert.equal(target.lastElementChild.textContent, '后续段落。');
+
+  await renderer.renderMarkdownInto(String.raw`| 类型 | 公式 |
+| --- | --- |
+| 行内 | $|x|$ |
+| 加粗 | **\(\|v\|\)** |
+| 原有转义 | a\|b |
+| 占位字符 |  |
+
+| 普通 | 表格 |
+| --- | --- |
+| a | b |`, target, tab);
+  assert.equal(target.querySelectorAll('table').length, 2);
+  assert.deepEqual([...target.querySelectorAll('annotation')].map(el => el.textContent), ['|x|', String.raw`\|v\|`]);
+  assert.equal(target.querySelectorAll('td')[5].textContent, 'a|b');
+  assert.equal(target.querySelectorAll('td')[7].textContent, '');
+  assert.equal(target.querySelector('.katex-error'), null);
+
+  await renderer.renderMarkdownInto('```markdown\n' + mathTable + '\n```', target, tab);
+  assert.equal(target.querySelector('table,.katex'), null);
+  assert.equal(target.querySelector('code').textContent.trim(), mathTable);
   dom.window.close();
   console.log('Math layout passed: subscripts, accents, fractions, MathML and unsafe HTML rejection');
 })().catch(error => { console.error(error); process.exitCode = 1; });
