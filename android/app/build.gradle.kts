@@ -12,8 +12,8 @@ android {
         applicationId = "com.maxli.simplemarkdownviewer"
         minSdk = 29
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.5.0"
+        versionCode = 4
+        versionName = "1.5.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     buildFeatures { buildConfig = true }
